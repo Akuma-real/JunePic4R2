@@ -35,6 +35,7 @@ export async function onRequestGet(context: EventContext<Env, never, Record<stri
         avatar: user.avatar,
         provider: user.provider,
         createdAt: user.created_at,
+        isAdmin: session.isAdmin,
       },
     });
   } catch (error) {

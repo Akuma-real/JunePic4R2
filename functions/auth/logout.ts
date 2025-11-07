@@ -12,7 +12,8 @@ export async function onRequestPost(context: EventContext<Env, never, Record<str
   const { APP_URL } = context.env;
 
   // 清除 session cookie
-  const clearCookie = deleteSession();
+  const isSecure = new URL(context.request.url).protocol === 'https:';
+  const clearCookie = deleteSession(isSecure);
 
   return new Response(null, {
     status: 302,

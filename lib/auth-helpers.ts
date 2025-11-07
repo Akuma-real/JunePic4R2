@@ -11,6 +11,7 @@ const SESSION_MAX_AGE = 30 * 24 * 60 * 60; // 30 days in seconds
 interface SessionData {
   userId: string;
   expiresAt: number;
+  isAdmin?: boolean;
 }
 
 // ============================================================================
@@ -123,11 +124,15 @@ async function decryptSession(
 export async function createSession(
   userId: string,
   secret: string,
-  isSecure = true
+  options?: {
+    isSecure?: boolean;
+    isAdmin?: boolean;
+  }
 ): Promise<string> {
   const sessionData: SessionData = {
     userId,
     expiresAt: Date.now() + SESSION_MAX_AGE * 1000,
+    isAdmin: options?.isAdmin ?? false,
   };
 
   const encrypted = await encryptSession(sessionData, secret);
@@ -140,6 +145,7 @@ export async function createSession(
     'SameSite=Lax',
   ];
 
+  const isSecure = options?.isSecure ?? true;
   if (isSecure) {
     cookie.push('Secure');
   }
@@ -153,18 +159,22 @@ export async function createSession(
 export async function verifySession(
   request: Request,
   secret: string
-): Promise<{ userId: string } | null> {
+): Promise<{ userId: string; isAdmin: boolean } | null> {
   const cookieHeader = request.headers.get('Cookie');
   if (!cookieHeader) {
     return null;
   }
 
-  // 解析 cookie
+  // 解析 cookie（对分隔符更宽松，去除空白）
   const cookies = Object.fromEntries(
-    cookieHeader.split('; ').map((c) => {
-      const [key, ...values] = c.split('=');
-      return [key, values.join('=')];
-    })
+    cookieHeader
+      .split(';')
+      .map((c) => c.trim())
+      .filter(Boolean)
+      .map((c) => {
+        const [key, ...values] = c.split('=');
+        return [key, values.join('=')];
+      })
   );
 
   const sessionCookie = cookies[SESSION_COOKIE_NAME];
@@ -177,15 +187,17 @@ export async function verifySession(
     return null;
   }
 
-  return { userId: sessionData.userId };
+  return { userId: sessionData.userId, isAdmin: !!sessionData.isAdmin };
 }
 
 /**
  * 删除 session cookie
  * 返回 Set-Cookie header 的值
  */
-export function deleteSession(): string {
-  return `${SESSION_COOKIE_NAME}=; Max-Age=0; Path=/; HttpOnly`;
+export function deleteSession(isSecure = true): string {
+  const attrs = ['Max-Age=0', 'Path=/', 'HttpOnly', 'SameSite=Lax'];
+  if (isSecure) attrs.push('Secure');
+  return `${SESSION_COOKIE_NAME}=; ${attrs.join('; ')}`;
 }
 
 // ============================================================================
@@ -198,7 +210,7 @@ export function deleteSession(): string {
 export async function verifySessionFromCookies(
   getCookie: (name: string) => { value: string } | undefined,
   secret: string
-): Promise<{ userId: string } | null> {
+): Promise<{ userId: string; isAdmin: boolean } | null> {
   const sessionCookie = getCookie(SESSION_COOKIE_NAME);
   if (!sessionCookie) {
     return null;
@@ -209,7 +221,7 @@ export async function verifySessionFromCookies(
     return null;
   }
 
-  return { userId: sessionData.userId };
+  return { userId: sessionData.userId, isAdmin: !!sessionData.isAdmin };
 }
 
 // ============================================================================

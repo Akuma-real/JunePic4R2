@@ -109,14 +109,14 @@ export async function getUserById(
  */
 export async function createImage(
   db: D1Database,
-  image: Omit<Image, 'created_at'>
+  image: Omit<Image, 'created_at'> & { created_at?: number }
 ): Promise<Image> {
   const result = await db
     .prepare(
       `INSERT INTO images
        (id, user_id, filename, storage_key, file_size, width, height, format, mime_type,
-        is_compressed, compression_quality, original_size, url)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        is_compressed, compression_quality, original_size, url, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, unixepoch()))
        RETURNING *`
     )
     .bind(
@@ -132,7 +132,8 @@ export async function createImage(
       image.is_compressed,
       image.compression_quality,
       image.original_size,
-      image.url
+      image.url,
+      image.created_at ?? null
     )
     .first<Image>();
 

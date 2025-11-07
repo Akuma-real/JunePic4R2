@@ -10,19 +10,7 @@
 /// <reference types="@cloudflare/workers-types" />
 
 import { verifySession, getSessionSecret } from '../../lib/auth-helpers';
-import { createImage } from '../../lib/db-queries';
-import { uploadToR2Bucket, deleteFromR2Bucket } from '../../lib/r2';
-import { nanoid } from 'nanoid';
-
-// 配置
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
-const ALLOWED_TYPES = [
-  'image/jpeg',
-  'image/png',
-  'image/gif',
-  'image/webp',
-  'image/svg+xml',
-];
+import { processAndSaveImage, ALLOWED_TYPES, MAX_FILE_SIZE } from '../../lib/server-upload';
 
 export async function onRequestPost(context: EventContext<Env, never, Record<string, unknown>>) {
   try {
@@ -42,8 +30,8 @@ export async function onRequestPost(context: EventContext<Env, never, Record<str
       return Response.json({ error: '未找到文件' }, { status: 400 });
     }
 
-    // 3. 验证文件类型
-    if (!ALLOWED_TYPES.includes(file.type)) {
+    // 3. 验证文件类型（SVG 已禁用）
+    if (!ALLOWED_TYPES.includes(file.type as (typeof ALLOWED_TYPES)[number])) {
       return Response.json(
         {
           error: `不支持的文件类型。允许的类型：${ALLOWED_TYPES.join(', ')}`,
@@ -60,73 +48,20 @@ export async function onRequestPost(context: EventContext<Env, never, Record<str
       );
     }
 
-    // 5. 读取文件为 ArrayBuffer
-    const arrayBuffer = await file.arrayBuffer();
-
-    // 6. 上传到 R2
+    // 5. 处理上传与入库（共用逻辑）
     const publicUrl = context.env.R2_PUBLIC_URL || context.env.APP_URL;
-    const uploadResult = await uploadToR2Bucket(
+    const result = await processAndSaveImage(
+      file,
+      session.userId,
       context.env.R2_BUCKET,
-      {
-        filename: file.name,
-        buffer: arrayBuffer,
-        mimeType: file.type,
-        metadata: {
-          userId: session.userId,
-          originalFilename: file.name,
-        },
-      },
+      context.env.DB,
       publicUrl
     );
-
-    // 7. 保存到数据库（如果失败，清理 R2）
-    const imageId = nanoid();
-    let savedImage;
-
-    try {
-      // 获取文件扩展名作为格式
-      const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
-
-      savedImage = await createImage(context.env.DB, {
-        id: imageId,
-        user_id: session.userId,
-        filename: file.name,
-        storage_key: uploadResult.key,
-        file_size: file.size,
-        width: null, // Cloudflare Workers 不支持图片元数据提取
-        height: null,
-        format: ext,
-        mime_type: file.type,
-        is_compressed: 0,
-        compression_quality: null,
-        original_size: null,
-        url: uploadResult.url,
-      });
-    } catch (dbError) {
-      // 数据库写入失败，清理 R2
-      console.error('Database write failed, cleaning up R2:', dbError);
-      try {
-        await deleteFromR2Bucket(context.env.R2_BUCKET, uploadResult.key);
-      } catch (cleanupError) {
-        console.error(
-          'Failed to cleanup R2 after database error:',
-          cleanupError
-        );
-      }
-      throw dbError;
-    }
 
     // 8. 返回成功响应
     return Response.json({
       success: true,
-      image: {
-        id: savedImage.id,
-        url: savedImage.url,
-        filename: savedImage.filename,
-        size: savedImage.file_size,
-        format: savedImage.format,
-        createdAt: savedImage.created_at,
-      },
+      image: result,
     });
   } catch (error) {
     console.error('Upload error:', error);

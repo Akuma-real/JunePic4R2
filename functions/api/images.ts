@@ -21,11 +21,13 @@ export async function onRequestGet(context: EventContext<Env, never, Record<stri
 
     // 获取查询参数
     const url = new URL(context.request.url);
-    const limit = Math.min(
-      parseInt(url.searchParams.get('limit') || '50'),
-      100
-    );
-    const offset = parseInt(url.searchParams.get('offset') || '0');
+    const rawLimit = url.searchParams.get('limit');
+    const rawOffset = url.searchParams.get('offset');
+    let limit = Number.parseInt(rawLimit || '50', 10);
+    if (!Number.isFinite(limit) || limit <= 0) limit = 50;
+    limit = Math.min(limit, 100);
+    let offset = Number.parseInt(rawOffset || '0', 10);
+    if (!Number.isFinite(offset) || offset < 0) offset = 0;
 
     // 并行查询图片和统计信息
     const [images, stats] = await Promise.all([

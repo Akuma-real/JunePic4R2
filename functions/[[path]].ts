@@ -6,7 +6,7 @@
 
 /// <reference types="@cloudflare/workers-types" />
 
-const IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.ico'];
+const IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.ico'];
 
 export async function onRequest(context: EventContext<Env, never, Record<string, unknown>>) {
   const url = new URL(context.request.url);
@@ -34,8 +34,9 @@ export async function onRequest(context: EventContext<Env, never, Record<string,
     return new Response(object.body, {
       headers: {
         'Content-Type': object.httpMetadata?.contentType || 'application/octet-stream',
-        'Cache-Control': 'public, max-age=31536000',
+        'Cache-Control': 'public, max-age=31536000, immutable',
         'ETag': object.httpEtag,
+        'X-Content-Type-Options': 'nosniff',
       },
     });
   } catch (error) {

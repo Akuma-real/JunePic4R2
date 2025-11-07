@@ -12,6 +12,7 @@ export interface CompressionOptions {
 
 export interface CompressionResult {
   file: File;
+  originalFile: File;
   originalSize: number;
   compressedSize: number;
   width: number;
@@ -72,6 +73,7 @@ export async function compressImage(
 
   return {
     file: compressedFile,
+    originalFile: file,
     originalSize: file.size,
     compressedSize: blob.size,
     width,

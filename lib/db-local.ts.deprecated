@@ -145,12 +145,12 @@ export class LocalDatabaseService {
   }
 
   // Image operations
-  createImage(image: Omit<Image, 'created_at'>): Image {
+  createImage(image: Omit<Image, 'created_at'> & { created_at?: number }): Image {
     const stmt = this.db.prepare(`
       INSERT INTO images
       (id, user_id, filename, storage_key, file_size, width, height, format, mime_type,
-       is_compressed, compression_quality, original_size, url)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       is_compressed, compression_quality, original_size, url, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, unixepoch()))
       RETURNING *
     `);
 
@@ -167,7 +167,8 @@ export class LocalDatabaseService {
       image.is_compressed,
       image.compression_quality,
       image.original_size,
-      image.url
+      image.url,
+      image.created_at ?? null
     ) as Image;
   }
 

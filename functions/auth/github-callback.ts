@@ -23,6 +23,16 @@ interface GitHubEmail {
   verified: boolean;
 }
 
+function parseCookies(header: string | null): Record<string, string> {
+  if (!header) return {};
+  const out: Record<string, string> = {};
+  header.split(';').forEach((pair) => {
+    const [k, ...rest] = pair.trim().split('=');
+    out[k] = rest.join('=');
+  });
+  return out;
+}
+
 export async function onRequestGet(context: EventContext<Env, never, Record<string, unknown>>) {
   const { GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET, APP_URL, DB } = context.env;
 
@@ -30,6 +40,7 @@ export async function onRequestGet(context: EventContext<Env, never, Record<stri
   const url = new URL(context.request.url);
   const code = url.searchParams.get('code');
   const error = url.searchParams.get('error');
+  const state = url.searchParams.get('state');
 
   if (error) {
     return Response.redirect(
@@ -43,6 +54,17 @@ export async function onRequestGet(context: EventContext<Env, never, Record<stri
   }
 
   try {
+    // 校验 state（防 CSRF）
+    const cookies = parseCookies(context.request.headers.get('Cookie'));
+    const stateCookie = cookies['oauth_state'];
+    if (!state || !stateCookie || state !== stateCookie) {
+      const headers = new Headers();
+      headers.set('Location', `${APP_URL}/auth/signin?error=${encodeURIComponent('Invalid state')}`);
+      const isSecure = new URL(context.request.url).protocol === 'https:';
+      headers.append('Set-Cookie', `oauth_state=; Max-Age=0; Path=/; HttpOnly; SameSite=Lax${isSecure ? '; Secure' : ''}`);
+      return new Response(null, { status: 302, headers });
+    }
+
     // 1. 用 code 换取 access_token
     const tokenResponse = await fetch(
       'https://github.com/login/oauth/access_token',
@@ -114,7 +136,33 @@ export async function onRequestGet(context: EventContext<Env, never, Record<stri
       throw new Error('No verified email found');
     }
 
-    // 3. 创建或更新用户
+    // 3. 邮箱白名单校验（未配置则禁止任何登录；配置后仅允许白名单）
+    const allowRaw = context.env.ALLOWED_EMAILS;
+    const allowedList = (allowRaw || '')
+      .split(',')
+      .map((s) => s.trim().toLowerCase())
+      .filter(Boolean);
+    const adminRaw = context.env.ADMIN_EMAILS;
+    const adminList = (adminRaw || '')
+      .split(',')
+      .map((s) => s.trim().toLowerCase())
+      .filter(Boolean);
+
+    if (allowedList.length === 0) {
+      const headers = new Headers();
+      headers.set('Location', `${APP_URL}/auth/signin?error=${encodeURIComponent('登录已禁用：未配置允许的邮箱')}`);
+      return new Response(null, { status: 302, headers });
+    }
+
+    const normalizedEmail = primaryEmail.toLowerCase();
+    if (!allowedList.includes(normalizedEmail)) {
+      const headers = new Headers();
+      headers.set('Location', `${APP_URL}/auth/signin?error=${encodeURIComponent('该邮箱未被允许登录')}`);
+      return new Response(null, { status: 302, headers });
+    }
+    const isAdmin = adminList.includes(normalizedEmail);
+
+    // 4. 创建或更新用户
     const user = await upsertUserFromGitHub(DB, {
       email: primaryEmail,
       name: githubUser.name,
@@ -122,22 +170,20 @@ export async function onRequestGet(context: EventContext<Env, never, Record<stri
       providerId: String(githubUser.id),
     });
 
-    // 4. 创建 session
+    // 5. 创建 session（本地开发下不加 Secure）
     const secret = getSessionSecret(context.env);
-    const sessionCookie = await createSession(
-      user.id,
-      secret,
-      true // secure cookie
-    );
-
-    // 5. 重定向到 dashboard
-    return new Response(null, {
-      status: 302,
-      headers: {
-        Location: `${APP_URL}/dashboard`,
-        'Set-Cookie': sessionCookie,
-      },
+    const isSecure = new URL(context.request.url).protocol === 'https:';
+    const sessionCookie = await createSession(user.id, secret, {
+      isSecure,
+      isAdmin,
     });
+
+    // 6. 清理 state cookie，并重定向到 dashboard
+    const headers = new Headers();
+    headers.set('Location', `${APP_URL}/dashboard`);
+    headers.append('Set-Cookie', sessionCookie);
+    headers.append('Set-Cookie', `oauth_state=; Max-Age=0; Path=/; HttpOnly; SameSite=Lax${isSecure ? '; Secure' : ''}`);
+    return new Response(null, { status: 302, headers });
   } catch (error) {
     console.error('GitHub OAuth callback error:', error);
     return Response.redirect(

@@ -152,6 +152,7 @@ export default function DashboardPage() {
               <ImageGallery
                 key={refreshKey}
                 onImageDeleted={handleImageDeleted}
+                canSync={Boolean(user.isAdmin)}
               />
             </Card>
           </div>

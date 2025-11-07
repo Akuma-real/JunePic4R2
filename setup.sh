@@ -24,10 +24,11 @@ if [ ! -f ".env.local" ]; then
   cp .env.example .env.local
   echo "✅ 已创建 .env.local 文件"
   echo ""
-  echo "⚠️  请编辑 .env.local 文件，填入您的配置："
+  echo "⚠️  请编辑 .env.local 文件，填入您的配置（仅用于 Next.js 构建/本地界面）："
+  echo "   注意：Pages Functions 的环境变量请在 wrangler.toml 或 Cloudflare Dashboard 配置，\".env.local\" 不会注入 Functions 运行时。"
   echo "   - Cloudflare R2 凭证"
   echo "   - D1 数据库 ID"
-  echo "   - NextAuth Secret (运行: openssl rand -base64 32)"
+  echo "   - NEXTAUTH_SECRET/SESSION_SECRET (运行: openssl rand -base64 32)"
   echo "   - GitHub/Google OAuth 凭证"
   echo ""
   read -p "按 Enter 继续..."
@@ -73,7 +74,7 @@ read -p "是否已配置 GitHub OAuth？(y/n): " has_github
 if [ "$has_github" != "y" ]; then
   echo ""
   echo "请访问 https://github.com/settings/developers 创建 OAuth App"
-  echo "回调 URL: http://localhost:3000/api/auth/callback/github"
+  echo "回调 URL: http://localhost:3000/auth/github-callback"
   echo ""
 fi
 

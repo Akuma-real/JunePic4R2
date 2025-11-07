@@ -23,6 +23,9 @@ export async function onRequestPost(context: EventContext<Env, never, Record<str
     if (!session) {
       return Response.json({ error: '未授权访问' }, { status: 401 });
     }
+    if (!session.isAdmin) {
+      return Response.json({ error: '需要管理员权限' }, { status: 403 });
+    }
 
     // 列出 R2 中的所有对象
     const r2Objects = await listAllFromR2Bucket(context.env.R2_BUCKET);
@@ -34,8 +37,25 @@ export async function onRequestPost(context: EventContext<Env, never, Record<str
     const publicUrl = context.env.R2_PUBLIC_URL || context.env.APP_URL;
 
     // 逐个检查并添加
+    const ALLOWED_TYPES = new Set(['image/jpeg', 'image/png', 'image/gif', 'image/webp']);
+
+    const normalizeMime = (mime?: string): string | undefined => {
+      if (!mime) return undefined;
+      const lower = mime.toLowerCase();
+      if (lower === 'image/jpg') return 'image/jpeg';
+      return lower;
+    };
     for (const obj of r2Objects) {
       try {
+        const ownerId = obj.metadata?.userId;
+        if (!ownerId) {
+          skippedCount++;
+          const message = `${obj.key}: 缺少 userId metadata，跳过`;
+          console.warn(message);
+          errors.push(message);
+          continue;
+        }
+
         // 检查数据库中是否已存在
         const existingImage = await getImageByStorageKey(
           context.env.DB,
@@ -51,15 +71,31 @@ export async function onRequestPost(context: EventContext<Env, never, Record<str
         const originalFilename =
           obj.metadata?.originalFilename || obj.key.split('/').pop() || obj.key;
 
-        // 获取文件扩展名
-        const ext = originalFilename.split('.').pop()?.toLowerCase() || 'jpg';
+        // 获取文件扩展名并标准化（jpg -> jpeg）
+        const rawExt = originalFilename.split('.').pop()?.toLowerCase() || 'jpg';
+        const ext = rawExt === 'jpg' ? 'jpeg' : rawExt;
         const format = ext;
-        const mimeType = obj.contentType || `image/${ext}`;
+        const mimeType = normalizeMime(obj.contentType) || `image/${ext}`;
+
+        // 过滤非受支持的类型（保持与上传接口一致）
+        if (!ALLOWED_TYPES.has(mimeType)) {
+          skippedCount++;
+          continue;
+        }
+
+        const createdAt = (() => {
+          const uploadedAtMeta = obj.metadata?.uploadedAt;
+          const parsed = uploadedAtMeta ? Date.parse(uploadedAtMeta) : NaN;
+          if (!Number.isNaN(parsed)) {
+            return Math.floor(parsed / 1000);
+          }
+          return Math.floor(obj.lastModified.getTime() / 1000);
+        })();
 
         // 创建图片记录
         await createImage(context.env.DB, {
           id: nanoid(),
-          user_id: session.userId,
+          user_id: ownerId,
           filename: originalFilename,
           storage_key: obj.key,
           file_size: obj.size,
@@ -71,6 +107,7 @@ export async function onRequestPost(context: EventContext<Env, never, Record<str
           compression_quality: null,
           original_size: null,
           url: `${publicUrl}/${obj.key}`,
+          created_at: createdAt,
         });
 
         addedCount++;
@@ -89,6 +126,7 @@ export async function onRequestPost(context: EventContext<Env, never, Record<str
         skipped: skippedCount,
         errors: errors.length,
       },
+      errors,
     });
   } catch (error) {
     console.error('Sync error:', error);

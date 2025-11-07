@@ -21,8 +21,10 @@ interface Image {
 
 export default function ImageGallery({
   onImageDeleted,
+  canSync = false,
 }: {
   onImageDeleted?: () => void;
+  canSync?: boolean;
 }) {
   const [images, setImages] = useState<Image[]>([]);
   const [loading, setLoading] = useState(true);
@@ -78,6 +80,7 @@ export default function ImageGallery({
   };
 
   const handleSync = async () => {
+    if (!canSync) return;
     if (!confirm('确定要从 R2 同步图片到数据库吗？')) return;
 
     setSyncing(true);
@@ -88,11 +91,16 @@ export default function ImageGallery({
 
       if (response.ok) {
         const data = await response.json() as {
-          stats: { total: number; added: number; skipped: number; errors: number }
+          stats: { total: number; added: number; skipped: number; errors: number };
+          errors?: string[];
         };
-        alert(
-          `同步完成！\n总计: ${data.stats.total}\n新增: ${data.stats.added}\n跳过: ${data.stats.skipped}\n错误: ${data.stats.errors}`
-        );
+        const baseMessage =
+          `同步完成！\n总计: ${data.stats.total}\n新增: ${data.stats.added}\n跳过: ${data.stats.skipped}\n错误: ${data.stats.errors}`;
+        const errorDetails =
+          data.errors && data.errors.length > 0
+            ? `\n\n详情（最多 5 条）：\n${data.errors.slice(0, 5).join('\n')}`
+            : '';
+        alert(baseMessage + errorDetails);
         // 重新加载图片列表
         fetchImages();
       } else {
@@ -130,15 +138,17 @@ export default function ImageGallery({
     return (
       <div className="space-y-4">
         <div className="flex justify-end">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleSync}
-            disabled={syncing}
-          >
-            <RefreshCw className={`w-4 h-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
-            {syncing ? '同步中...' : '从 R2 同步'}
-          </Button>
+          {canSync && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleSync}
+              disabled={syncing}
+            >
+              <RefreshCw className={`w-4 h-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
+              {syncing ? '同步中...' : '从 R2 同步'}
+            </Button>
+          )}
         </div>
         <div className="text-center text-gray-500 py-12">
           暂无图片，开始上传您的第一张图片吧！
@@ -149,17 +159,19 @@ export default function ImageGallery({
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-end">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleSync}
-          disabled={syncing}
-        >
-          <RefreshCw className={`w-4 h-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
-          {syncing ? '同步中...' : '从 R2 同步'}
-        </Button>
-      </div>
+      {canSync && (
+        <div className="flex justify-end">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleSync}
+            disabled={syncing}
+          >
+            <RefreshCw className={`w-4 h-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
+            {syncing ? '同步中...' : '从 R2 同步'}
+          </Button>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">{images.map((image) => (
         <Card key={image.id} className="overflow-hidden">

@@ -1,7 +1,7 @@
 /**
  * 批量上传 API
  *
- * POST /api/upload-batch - 批量上传图片
+ * POST /api/upload/batch - 批量上传图片
  *
  * 注意：Cloudflare Workers 不支持 sharp 库（Node.js native 模块）
  * 图片压缩功能已移除，建议在客户端进行压缩
@@ -10,18 +10,8 @@
 /// <reference types="@cloudflare/workers-types" />
 
 import { verifySession, getSessionSecret } from '../../../lib/auth-helpers';
-import { createImage } from '../../../lib/db-queries';
-import { uploadToR2Bucket, deleteFromR2Bucket } from '../../../lib/r2';
-import { nanoid } from 'nanoid';
+import { processAndSaveImage } from '../../../lib/server-upload';
 
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
-const ALLOWED_TYPES = [
-  'image/jpeg',
-  'image/png',
-  'image/gif',
-  'image/webp',
-  'image/svg+xml',
-];
 const MAX_BATCH_SIZE = 20; // 最多一次上传 20 张图片
 
 interface UploadedImage {
@@ -36,83 +26,6 @@ interface UploadedImage {
 interface UploadError {
   filename: string;
   error: string;
-}
-
-async function processImage(
-  file: File,
-  userId: string,
-  bucket: R2Bucket,
-  db: D1Database,
-  publicUrl: string
-): Promise<UploadedImage> {
-  // 验证文件类型
-  if (!ALLOWED_TYPES.includes(file.type)) {
-    throw new Error(`不支持的文件类型：${file.type}`);
-  }
-
-  // 验证文件大小
-  if (file.size > MAX_FILE_SIZE) {
-    throw new Error(
-      `文件过大：${(file.size / 1024 / 1024).toFixed(2)}MB`
-    );
-  }
-
-  // 读取文件
-  const arrayBuffer = await file.arrayBuffer();
-
-  // 上传到 R2
-  const uploadResult = await uploadToR2Bucket(
-    bucket,
-    {
-      filename: file.name,
-      buffer: arrayBuffer,
-      mimeType: file.type,
-      metadata: {
-        userId,
-        originalFilename: file.name,
-      },
-    },
-    publicUrl
-  );
-
-  // 保存到数据库
-  const imageId = nanoid();
-  const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
-
-  try {
-    const savedImage = await createImage(db, {
-      id: imageId,
-      user_id: userId,
-      filename: file.name,
-      storage_key: uploadResult.key,
-      file_size: file.size,
-      width: null,
-      height: null,
-      format: ext,
-      mime_type: file.type,
-      is_compressed: 0,
-      compression_quality: null,
-      original_size: null,
-      url: uploadResult.url,
-    });
-
-    return {
-      id: savedImage.id,
-      url: savedImage.url,
-      filename: savedImage.filename,
-      size: savedImage.file_size,
-      format: savedImage.format,
-      createdAt: savedImage.created_at,
-    };
-  } catch (dbError) {
-    // 数据库失败，清理 R2
-    try {
-      await deleteFromR2Bucket(bucket, uploadResult.key);
-    } catch (cleanupError) {
-      console.error('Failed to cleanup R2:', cleanupError);
-    }
-    throw dbError;
-  }
 }
 
 export async function onRequestPost(context: EventContext<Env, never, Record<string, unknown>>) {
@@ -149,7 +62,7 @@ export async function onRequestPost(context: EventContext<Env, never, Record<str
     await Promise.allSettled(
       files.map(async (file) => {
         try {
-          const result = await processImage(
+          const result = await processAndSaveImage(
             file,
             session.userId,
             context.env.R2_BUCKET,

@@ -15,6 +15,7 @@ interface User {
   avatar: string | null;
   provider: string;
   createdAt: number;
+  isAdmin?: boolean;
 }
 
 interface AuthState {

@@ -1,8 +1,8 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { Upload, Image as ImageIcon, X, Check } from 'lucide-react';
+import { Upload, Image as ImageIcon, X, Check, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -32,11 +32,13 @@ export default function ImageUploader({
   const [files, setFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [compress, setCompress] = useState(true);
+  const [compress, setCompress] = useState(false);
   const [quality, setQuality] = useState(92);
   const [uploadResults, setUploadResults] = useState<UploadedImage[]>([]);
   const [compressionStats, setCompressionStats] = useState<CompressionResult[]>([]);
   const [currentPhase, setCurrentPhase] = useState<'idle' | 'compressing' | 'uploading'>('idle');
+  const [usedCompression, setUsedCompression] = useState(false);
+  const [skippedCompressionFiles, setSkippedCompressionFiles] = useState<string[]>([]);
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     setFiles((prev) => [...prev, ...acceptedFiles].slice(0, maxFiles));
@@ -45,7 +47,10 @@ export default function ImageUploader({
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     accept: {
-      'image/*': ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg'],
+      'image/jpeg': ['.jpg', '.jpeg'],
+      'image/png': ['.png'],
+      'image/gif': ['.gif'],
+      'image/webp': ['.webp'],
     },
     maxFiles,
   });
@@ -60,34 +65,64 @@ export default function ImageUploader({
     setUploading(true);
     setProgress(0);
     setCompressionStats([]);
+    setSkippedCompressionFiles([]);
+    setUsedCompression(false);
 
     try {
       let filesToUpload = files;
+      let performedCompression = false;
 
       // 第一阶段：如果启用压缩，先在客户端压缩
       if (compress) {
-        setCurrentPhase('compressing');
+        const compressibleFiles: File[] = [];
+        const animatedFiles: File[] = [];
 
-        const compressionResults = await compressImages(
-          files,
-          {
-            maxWidth: 1920,
-            maxHeight: 1920,
-            quality: quality / 100,
-            targetFormat: 'webp',
-          },
-          (current, total) => {
-            setProgress((current / total) * 50); // 压缩阶段占 0-50%
+        for (const file of files) {
+          if (await shouldSkipCompression(file)) {
+            animatedFiles.push(file);
+          } else {
+            compressibleFiles.push(file);
           }
-        );
+        }
 
-        setCompressionStats(compressionResults);
-        filesToUpload = compressionResults.map(r => r.file);
+        setSkippedCompressionFiles(animatedFiles.map((file) => file.name));
+
+        if (compressibleFiles.length > 0) {
+          setCurrentPhase('compressing');
+          performedCompression = true;
+          setUsedCompression(true);
+
+          const compressionResults = await compressImages(
+            compressibleFiles,
+            {
+              maxWidth: 1920,
+              maxHeight: 1920,
+              quality: quality / 100,
+              targetFormat: 'webp',
+            },
+            (current, total) => {
+              setProgress((current / total) * 50); // 压缩阶段占 0-50%
+            }
+          );
+
+          const compressionMap = new Map<File, CompressionResult>();
+          compressionResults.forEach((result, index) => {
+            compressionMap.set(compressibleFiles[index], result);
+          });
+
+          setCompressionStats(compressionResults);
+          filesToUpload = files.map((file) => compressionMap.get(file)?.file ?? file);
+        } else {
+          setCompressionStats([]);
+          filesToUpload = files;
+        }
+      } else {
+        setSkippedCompressionFiles([]);
       }
 
       // 第二阶段：上传到服务器
       setCurrentPhase('uploading');
-      setProgress(compress ? 50 : 0);
+      setProgress(performedCompression ? 50 : 0);
 
       const formData = new FormData();
       filesToUpload.forEach((file) => formData.append('files', file));
@@ -131,7 +166,7 @@ export default function ImageUploader({
   };
 
   // 粘贴上传
-  useCallback(() => {
+  useEffect(() => {
     const handlePaste = (e: ClipboardEvent) => {
       const items = e.clipboardData?.items;
       if (!items) return;
@@ -171,7 +206,13 @@ export default function ImageUploader({
             <Button
               variant={compress ? 'default' : 'outline'}
               size="sm"
-              onClick={() => setCompress(!compress)}
+              onClick={() => {
+                const next = !compress;
+                setCompress(next);
+                if (!next) {
+                  setSkippedCompressionFiles([]);
+                }
+              }}
             >
               {compress ? '已启用' : '已禁用'}
             </Button>
@@ -193,6 +234,9 @@ export default function ImageUploader({
               />
               <p className="text-xs text-gray-500">
                 92% 可获得最佳质量与文件大小的平衡
+              </p>
+              <p className="text-xs text-amber-600 dark:text-amber-300">
+                ⚠️ 启用压缩会将图片转换为静态 WebP，检测到动图会自动跳过并上传原文件。
               </p>
             </div>
           )}
@@ -221,7 +265,7 @@ export default function ImageUploader({
                 拖拽图片到这里，或点击选择文件
               </p>
               <p className="text-sm text-gray-500">
-                支持 PNG, JPG, GIF, WebP, SVG（最多 {maxFiles} 个文件）
+                支持 PNG, JPG, GIF, WebP（最多 {maxFiles} 个文件）
               </p>
               <p className="text-xs text-gray-400 mt-2">
                 提示：您也可以直接粘贴（Ctrl+V）图片
@@ -275,6 +319,20 @@ export default function ImageUploader({
             ))}
           </div>
 
+          {skippedCompressionFiles.length > 0 && (
+            <div className="mt-4 rounded-lg border border-yellow-200 bg-yellow-50 p-3 text-xs text-yellow-800 dark:border-yellow-900 dark:bg-yellow-950/40 dark:text-yellow-200">
+              <div className="flex items-center gap-2 font-medium">
+                <AlertTriangle className="w-4 h-4" />
+                <span>以下文件检测到动画，将以原格式上传：</span>
+              </div>
+              <ul className="mt-2 list-disc space-y-1 pl-4">
+                {skippedCompressionFiles.map((name) => (
+                  <li key={name} className="truncate">{name}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           <div className="mt-4">
             {uploading && (
               <div className="mb-4 space-y-2">
@@ -285,12 +343,30 @@ export default function ImageUploader({
                       {currentPhase === 'uploading' && '正在上传到服务器...'}
                     </span>
                     <span>
-                      {currentPhase === 'compressing' && `${Math.round(progress * 2)}%`}
-                      {currentPhase === 'uploading' && `${Math.round((progress - 50) * 2)}%`}
+                      {currentPhase !== 'idle' &&
+                        `${(() => {
+                          if (currentPhase === 'compressing') {
+                            return Math.round(Math.max(0, Math.min(100, progress * 2)));
+                          }
+                          if (currentPhase === 'uploading') {
+                            const value = usedCompression ? (progress - 50) * 2 : progress;
+                            return Math.round(Math.max(0, Math.min(100, value)));
+                          }
+                          return 0;
+                        })()}%`}
                     </span>
                   </div>
                   <Progress
-                    value={currentPhase === 'compressing' ? progress * 2 : (progress - 50) * 2}
+                    value={(() => {
+                      if (currentPhase === 'compressing') {
+                        return Math.max(0, Math.min(100, progress * 2));
+                      }
+                      if (currentPhase === 'uploading') {
+                        const val = usedCompression ? (progress - 50) * 2 : progress;
+                        return Math.max(0, Math.min(100, val));
+                      }
+                      return 0;
+                    })()}
                     className="w-full"
                   />
                 </div>
@@ -304,7 +380,7 @@ export default function ImageUploader({
                       return (
                         <div key={idx} className="flex justify-between items-center text-xs">
                           <span className="truncate flex-1">
-                            {stat.file.name}
+                            {stat.originalFile.name} → {stat.file.name}
                           </span>
                           <span className="text-green-600 dark:text-green-400 ml-2 whitespace-nowrap">
                             {formatFileSize(stat.originalSize)} → {formatFileSize(stat.compressedSize)}
@@ -345,4 +421,36 @@ export default function ImageUploader({
       )}
     </div>
   );
+}
+
+async function shouldSkipCompression(file: File): Promise<boolean> {
+  if (file.type === 'image/gif') {
+    return true;
+  }
+
+  if (file.type === 'image/webp') {
+    return await isAnimatedWebP(file);
+  }
+
+  return false;
+}
+
+async function isAnimatedWebP(file: File): Promise<boolean> {
+  try {
+    const buffer = await file.slice(0, 1024 * 1024).arrayBuffer();
+    const bytes = new Uint8Array(buffer);
+    for (let i = 0; i < bytes.length - 3; i++) {
+      if (
+        bytes[i] === 0x41 &&
+        bytes[i + 1] === 0x4e &&
+        bytes[i + 2] === 0x4d &&
+        bytes[i + 3] === 0x46
+      ) {
+        return true;
+      }
+    }
+  } catch (error) {
+    console.warn('Failed to inspect WebP animation', error);
+  }
+  return false;
 }

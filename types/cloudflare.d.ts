@@ -24,6 +24,15 @@ declare global {
 
     // 应用配置
     APP_URL: string; // 应用的公开 URL，用于 OAuth callback
+
+    // 可选：Referer 白名单
+    ALLOWED_REFERERS?: string;
+
+    // 可选：允许登录的邮箱白名单（逗号分隔）。未设置时禁止任何登录
+    ALLOWED_EMAILS?: string;
+
+    // 可选：管理员邮箱白名单（逗号分隔）。仅这些邮箱被视为管理员
+    ADMIN_EMAILS?: string;
   }
 }
 
