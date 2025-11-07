@@ -33,6 +33,15 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 
+# wrangler
+.wrangler/
+.dev.vars
+
+# local database
+local.db
+local.db-shm
+local.db-wal
+
 # vercel
 .vercel
 

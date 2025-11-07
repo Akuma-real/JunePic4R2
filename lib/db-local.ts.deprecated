@@ -1,0 +1,234 @@
+import Database from 'better-sqlite3';
+import { join } from 'path';
+import type { User, Image, Album } from './db-types';
+
+// 本地 SQLite 数据库路径
+const DB_PATH = join(process.cwd(), 'local.db');
+
+// 初始化数据库
+let dbConnection: Database.Database | null = null;
+
+function getDb(): Database.Database {
+  if (!dbConnection) {
+    dbConnection = new Database(DB_PATH);
+    dbConnection.pragma('journal_mode = WAL');
+
+    // 初始化表结构（如果不存在）
+    initializeTables(dbConnection);
+  }
+  return dbConnection;
+}
+
+function initializeTables(database: Database.Database) {
+  // 读取 schema 并执行
+  const schema = `
+    CREATE TABLE IF NOT EXISTS users (
+      id TEXT PRIMARY KEY,
+      email TEXT NOT NULL UNIQUE,
+      name TEXT,
+      avatar TEXT,
+      provider TEXT NOT NULL,
+      provider_id TEXT NOT NULL,
+      created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+      updated_at INTEGER NOT NULL DEFAULT (unixepoch())
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+    CREATE INDEX IF NOT EXISTS idx_users_provider ON users(provider, provider_id);
+
+    CREATE TABLE IF NOT EXISTS images (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      filename TEXT NOT NULL,
+      storage_key TEXT NOT NULL,
+      file_size INTEGER NOT NULL,
+      width INTEGER,
+      height INTEGER,
+      format TEXT NOT NULL,
+      mime_type TEXT NOT NULL,
+      is_compressed INTEGER NOT NULL DEFAULT 0,
+      compression_quality REAL,
+      original_size INTEGER,
+      url TEXT NOT NULL,
+      created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_images_user_id ON images(user_id);
+    CREATE INDEX IF NOT EXISTS idx_images_created_at ON images(created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_images_format ON images(format);
+
+    CREATE TABLE IF NOT EXISTS albums (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      description TEXT,
+      cover_image_id TEXT,
+      image_count INTEGER NOT NULL DEFAULT 0,
+      created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+      updated_at INTEGER NOT NULL DEFAULT (unixepoch()),
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY (cover_image_id) REFERENCES images(id) ON DELETE SET NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_albums_user_id ON albums(user_id);
+    CREATE INDEX IF NOT EXISTS idx_albums_created_at ON albums(created_at DESC);
+
+    CREATE TABLE IF NOT EXISTS image_albums (
+      image_id TEXT NOT NULL,
+      album_id TEXT NOT NULL,
+      added_at INTEGER NOT NULL DEFAULT (unixepoch()),
+      PRIMARY KEY (image_id, album_id),
+      FOREIGN KEY (image_id) REFERENCES images(id) ON DELETE CASCADE,
+      FOREIGN KEY (album_id) REFERENCES albums(id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_image_albums_album_id ON image_albums(album_id);
+    CREATE INDEX IF NOT EXISTS idx_image_albums_added_at ON image_albums(added_at DESC);
+
+    CREATE TABLE IF NOT EXISTS api_keys (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      key_hash TEXT NOT NULL UNIQUE,
+      name TEXT NOT NULL,
+      last_used_at INTEGER,
+      created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+      expires_at INTEGER,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_api_keys_user_id ON api_keys(user_id);
+    CREATE INDEX IF NOT EXISTS idx_api_keys_key_hash ON api_keys(key_hash);
+  `;
+
+  database.exec(schema);
+}
+
+// 数据库操作类
+export class LocalDatabaseService {
+  private db: Database.Database;
+
+  constructor() {
+    this.db = getDb();
+  }
+
+  // User operations
+  createOrUpdateUser(user: Omit<User, 'created_at' | 'updated_at'>): User {
+    const stmt = this.db.prepare(`
+      INSERT INTO users (id, email, name, avatar, provider, provider_id)
+      VALUES (?, ?, ?, ?, ?, ?)
+      ON CONFLICT(email) DO UPDATE SET
+        name = excluded.name,
+        avatar = excluded.avatar,
+        updated_at = unixepoch()
+      RETURNING *
+    `);
+
+    return stmt.get(
+      user.id,
+      user.email,
+      user.name,
+      user.avatar,
+      user.provider,
+      user.provider_id
+    ) as User;
+  }
+
+  getUserByEmail(email: string): User | null {
+    const stmt = this.db.prepare('SELECT * FROM users WHERE email = ?');
+    return (stmt.get(email) as User) || null;
+  }
+
+  getUserById(id: string): User | null {
+    const stmt = this.db.prepare('SELECT * FROM users WHERE id = ?');
+    return (stmt.get(id) as User) || null;
+  }
+
+  // Image operations
+  createImage(image: Omit<Image, 'created_at'>): Image {
+    const stmt = this.db.prepare(`
+      INSERT INTO images
+      (id, user_id, filename, storage_key, file_size, width, height, format, mime_type,
+       is_compressed, compression_quality, original_size, url)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      RETURNING *
+    `);
+
+    return stmt.get(
+      image.id,
+      image.user_id,
+      image.filename,
+      image.storage_key,
+      image.file_size,
+      image.width,
+      image.height,
+      image.format,
+      image.mime_type,
+      image.is_compressed,
+      image.compression_quality,
+      image.original_size,
+      image.url
+    ) as Image;
+  }
+
+  getImagesByUserId(userId: string, limit = 50, offset = 0): Image[] {
+    const stmt = this.db.prepare(
+      'SELECT * FROM images WHERE user_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?'
+    );
+    return stmt.all(userId, limit, offset) as Image[];
+  }
+
+  getImageById(id: string): Image | null {
+    const stmt = this.db.prepare('SELECT * FROM images WHERE id = ?');
+    return (stmt.get(id) as Image) || null;
+  }
+
+  getImageByStorageKey(storageKey: string): Image | null {
+    const stmt = this.db.prepare('SELECT * FROM images WHERE storage_key = ?');
+    return (stmt.get(storageKey) as Image) || null;
+  }
+
+  deleteImage(id: string): void {
+    const stmt = this.db.prepare('DELETE FROM images WHERE id = ?');
+    stmt.run(id);
+  }
+
+  // Statistics
+  getUserStats(userId: string): { imageCount: number; totalSize: number } {
+    const stmt = this.db.prepare(`
+      SELECT
+        COUNT(*) as imageCount,
+        COALESCE(SUM(file_size), 0) as totalSize
+      FROM images
+      WHERE user_id = ?
+    `);
+    return stmt.get(userId) as { imageCount: number; totalSize: number };
+  }
+
+  // Album operations
+  createAlbum(album: Omit<Album, 'created_at' | 'updated_at' | 'image_count'>): Album {
+    const stmt = this.db.prepare(`
+      INSERT INTO albums (id, user_id, name, description, cover_image_id)
+      VALUES (?, ?, ?, ?, ?)
+      RETURNING *
+    `);
+
+    return stmt.get(
+      album.id,
+      album.user_id,
+      album.name,
+      album.description,
+      album.cover_image_id
+    ) as Album;
+  }
+
+  getAlbumsByUserId(userId: string): Album[] {
+    const stmt = this.db.prepare(
+      'SELECT * FROM albums WHERE user_id = ? ORDER BY created_at DESC'
+    );
+    return stmt.all(userId) as Album[];
+  }
+}
+
+// 导出单例实例
+export const db = new LocalDatabaseService();

@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Wrangler 生成的临时文件
+    ".wrangler/**",
   ]),
 ]);
 
