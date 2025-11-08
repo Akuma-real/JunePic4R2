@@ -20,9 +20,13 @@ function generateState(): string {
 export async function onRequestGet(context: EventContext<Env, never, Record<string, unknown>>) {
   const { GITHUB_CLIENT_ID, APP_URL, OWNER_EMAIL } = context.env;
 
-  if (!GITHUB_CLIENT_ID || !APP_URL) {
+  // 兼容：APP_URL 缺失时，以当前请求的 origin 作为回调根（避免因配置遗漏而 500）
+  const requestOrigin = new URL(context.request.url).origin;
+  const appUrl = (APP_URL && APP_URL.trim().length > 0) ? APP_URL : requestOrigin;
+
+  if (!GITHUB_CLIENT_ID) {
     return Response.json(
-      { error: 'OAuth configuration missing' },
+      { error: 'OAuth configuration missing: GITHUB_CLIENT_ID' },
       { status: 500 }
     );
   }
@@ -31,12 +35,12 @@ export async function onRequestGet(context: EventContext<Env, never, Record<stri
   const hasOwner = typeof OWNER_EMAIL === 'string' && OWNER_EMAIL.trim().length > 0;
   if (!hasOwner) {
     const headers = new Headers();
-    headers.set('Location', `${APP_URL}/auth/signin?error=${encodeURIComponent('登录已禁用：未配置 OWNER_EMAIL')}`);
+    headers.set('Location', `${appUrl}/auth/signin?error=${encodeURIComponent('登录已禁用：未配置 OWNER_EMAIL')}`);
     return new Response(null, { status: 302, headers });
   }
 
   const state = generateState();
-  const callbackUrl = `${APP_URL}/auth/github-callback`;
+  const callbackUrl = `${appUrl}/auth/github-callback`;
 
   // GitHub OAuth 授权 URL
   const authUrl = new URL('https://github.com/login/oauth/authorize');

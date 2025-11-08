@@ -42,9 +42,12 @@ export async function onRequestGet(context: EventContext<Env, never, Record<stri
   const error = url.searchParams.get('error');
   const state = url.searchParams.get('state');
 
+  const requestOrigin = new URL(context.request.url).origin;
+  const appUrl = (APP_URL && APP_URL.trim().length > 0) ? APP_URL : requestOrigin;
+
   if (error) {
     return Response.redirect(
-      `${APP_URL}/auth/signin?error=${encodeURIComponent(error)}`,
+      `${appUrl}/auth/signin?error=${encodeURIComponent(error)}`,
       302
     );
   }
@@ -59,7 +62,7 @@ export async function onRequestGet(context: EventContext<Env, never, Record<stri
     const stateCookie = cookies['oauth_state'];
     if (!state || !stateCookie || state !== stateCookie) {
       const headers = new Headers();
-      headers.set('Location', `${APP_URL}/auth/signin?error=${encodeURIComponent('Invalid state')}`);
+      headers.set('Location', `${appUrl}/auth/signin?error=${encodeURIComponent('Invalid state')}`);
       const isSecure = new URL(context.request.url).protocol === 'https:';
       headers.append('Set-Cookie', `oauth_state=; Max-Age=0; Path=/; HttpOnly; SameSite=Lax${isSecure ? '; Secure' : ''}`);
       return new Response(null, { status: 302, headers });
@@ -140,14 +143,14 @@ export async function onRequestGet(context: EventContext<Env, never, Record<stri
     const owner = (context.env.OWNER_EMAIL || '').trim().toLowerCase();
     if (!owner) {
       const headers = new Headers();
-      headers.set('Location', `${APP_URL}/auth/signin?error=${encodeURIComponent('登录已禁用：未配置 OWNER_EMAIL')}`);
+      headers.set('Location', `${appUrl}/auth/signin?error=${encodeURIComponent('登录已禁用：未配置 OWNER_EMAIL')}`);
       return new Response(null, { status: 302, headers });
     }
 
     const normalizedEmail = primaryEmail.toLowerCase();
     if (normalizedEmail !== owner) {
       const headers = new Headers();
-      headers.set('Location', `${APP_URL}/auth/signin?error=${encodeURIComponent('该邮箱未被允许登录')}`);
+      headers.set('Location', `${appUrl}/auth/signin?error=${encodeURIComponent('该邮箱未被允许登录')}`);
       return new Response(null, { status: 302, headers });
     }
     const isAdmin = true;
@@ -170,14 +173,14 @@ export async function onRequestGet(context: EventContext<Env, never, Record<stri
 
     // 6. 清理 state cookie，并重定向到 dashboard
     const headers = new Headers();
-    headers.set('Location', `${APP_URL}/dashboard`);
+    headers.set('Location', `${appUrl}/dashboard`);
     headers.append('Set-Cookie', sessionCookie);
     headers.append('Set-Cookie', `oauth_state=; Max-Age=0; Path=/; HttpOnly; SameSite=Lax${isSecure ? '; Secure' : ''}`);
     return new Response(null, { status: 302, headers });
   } catch (error) {
     console.error('GitHub OAuth callback error:', error);
     return Response.redirect(
-      `${APP_URL}/auth/signin?error=${encodeURIComponent('Authentication failed')}`,
+      `${appUrl}/auth/signin?error=${encodeURIComponent('Authentication failed')}`,
       302
     );
   }

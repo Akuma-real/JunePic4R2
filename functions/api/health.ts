@@ -42,15 +42,30 @@ export async function onRequestGet(context: EventContext<Env, never, Record<stri
 
     const integrationOk = d1Ok && r2Ok;
 
+    // 环境变量就绪（仅返回布尔，不回显值）
+    const envOk = {
+      appUrl: typeof env.APP_URL === 'string' && env.APP_URL.trim().length > 0,
+      sessionSecret: typeof env.SESSION_SECRET === 'string' && env.SESSION_SECRET.length >= 32,
+      github: {
+        clientId: typeof env.GITHUB_CLIENT_ID === 'string' && env.GITHUB_CLIENT_ID.trim().length > 0,
+        clientSecret: typeof env.GITHUB_CLIENT_SECRET === 'string' && env.GITHUB_CLIENT_SECRET.trim().length > 0,
+      },
+      ownerEmail: typeof env.OWNER_EMAIL === 'string' && env.OWNER_EMAIL.trim().length > 0,
+      bindings: {
+        db: !!env.DB,
+        r2: !!env.R2_BUCKET,
+      },
+    } as const;
+
     return Response.json({
       success: integrationOk,
       d1: { ok: d1Ok, error: d1Error },
       r2: { ok: r2Ok, error: r2Error },
       integration: { ok: integrationOk },
+      env: envOk,
     });
   } catch (error) {
     console.error('Health error:', error);
     return Response.json({ error: '健康检查失败' }, { status: 500 });
   }
 }
-
