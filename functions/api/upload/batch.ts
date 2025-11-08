@@ -11,6 +11,7 @@
 
 import { verifySession, getSessionSecret } from '../../../lib/auth-helpers';
 import { processAndSaveImage } from '../../../lib/server-upload';
+import { resolveUploadToken } from '../../../lib/upload-tokens';
 
 const MAX_BATCH_SIZE = 20; // 最多一次上传 20 张图片
 
@@ -28,13 +29,27 @@ interface UploadError {
   error: string;
 }
 
+async function authenticateRequest(request: Request, env: Env) {
+  const secret = getSessionSecret(env);
+  const session = await verifySession(request, secret);
+
+  if (session) {
+    return { userId: session.userId };
+  }
+
+  const tokenResult = await resolveUploadToken(request, env.DB);
+  if (tokenResult) {
+    return { userId: tokenResult.userId };
+  }
+
+  return null;
+}
+
 export async function onRequestPost(context: EventContext<Env, never, Record<string, unknown>>) {
   try {
-    // 验证 session
-    const secret = getSessionSecret(context.env);
-    const session = await verifySession(context.request, secret);
+    const auth = await authenticateRequest(context.request, context.env);
 
-    if (!session) {
+    if (!auth) {
       return Response.json({ error: '未授权访问' }, { status: 401 });
     }
 
@@ -64,7 +79,7 @@ export async function onRequestPost(context: EventContext<Env, never, Record<str
         try {
           const result = await processAndSaveImage(
             file,
-            session.userId,
+            auth.userId,
             context.env.R2_BUCKET,
             context.env.DB,
             publicUrl

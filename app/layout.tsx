@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import "@fancyapps/ui/dist/fancybox/fancybox.css";
 import Providers from "./providers";
 
 export const metadata: Metadata = {

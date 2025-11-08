@@ -3,12 +3,12 @@
 import { useEffect, useState } from 'react';
 import NextImage from 'next/image';
 import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
-import { Trash2, Copy, ExternalLink, RefreshCw } from 'lucide-react';
+import { Trash2, Copy, RefreshCw } from 'lucide-react';
 import { format } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Button } from '@/components/ui/button';
 import Lightbox from '@/components/lightbox';
 import {
   DropdownMenu,
@@ -22,7 +22,6 @@ import {
   DropdownMenuSubContent,
   DropdownMenuShortcut,
 } from '@/components/ui/dropdown-menu';
-import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -58,6 +57,8 @@ export default function ImageGallery({
   const [syncing, setSyncing] = useState(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
+  const [lightboxTrigger, setLightboxTrigger] = useState<HTMLElement | null>(null);
+  const lightboxMaxScale = 4;
 
   const fetchImages = async () => {
     try {
@@ -266,8 +267,10 @@ export default function ImageGallery({
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">{images.map((image, idx) => (
         <Card key={image.id} className="overflow-hidden">
           <div
-            className="aspect-video bg-gray-100 dark:bg-gray-800 relative group cursor-zoom-in"
-            onClick={() => {
+            className="aspect-video bg-gray-100 dark:bg-gray-800 relative cursor-zoom-in"
+            onClick={(e) => {
+              const target = e.currentTarget.querySelector('img');
+              setLightboxTrigger((target as HTMLElement) ?? e.currentTarget);
               setLightboxIndex(idx);
               setLightboxOpen(true);
             }}
@@ -280,22 +283,6 @@ export default function ImageGallery({
               sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
               unoptimized
             />
-            <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button asChild variant="outline" size="icon" className="bg-white hover:bg-gray-100"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                    }}
-                  >
-                    <a href={image.url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
-                      <ExternalLink className="w-5 h-5 text-gray-700" />
-                    </a>
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>在新标签打开</TooltipContent>
-              </Tooltip>
-            </div>
           </div>
 
           <div className="p-4">
@@ -383,6 +370,8 @@ export default function ImageGallery({
         }))}
         index={lightboxIndex}
         onIndexChange={setLightboxIndex}
+        triggerEl={lightboxTrigger}
+        maxScale={lightboxMaxScale}
       />
     </div>
   );

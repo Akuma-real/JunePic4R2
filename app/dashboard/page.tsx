@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import ImageUploader from '@/components/image-uploader';
 import ImageGallery from '@/components/image-gallery';
+import UploadTokenManager from '@/components/upload-token-manager';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { LogOut, Image as ImageIcon, RefreshCw } from 'lucide-react';
@@ -155,7 +156,7 @@ export default function DashboardPage() {
       {/* 顶部导航栏 */}
       <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between py-4 sm:py-0">
             <div className="flex items-center gap-3">
               <ImageIcon className="w-8 h-8 text-blue-600" />
               <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
@@ -163,23 +164,23 @@ export default function DashboardPage() {
               </h1>
             </div>
 
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-3">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4 w-full sm:w-auto">
+              <div className="flex items-center gap-3 min-w-0">
                 {user.avatar && (
                   <Image
                     src={user.avatar}
                     alt={user.name || '用户头像'}
-                    width={32}
-                    height={32}
-                    className="rounded-full"
+                    width={40}
+                    height={40}
+                    className="rounded-full flex-shrink-0"
                     unoptimized
                   />
                 )}
-                <div className="text-sm">
-                  <p className="font-medium text-gray-900 dark:text-white">
+                <div className="text-sm leading-tight w-full">
+                  <p className="font-medium text-gray-900 dark:text-white truncate">
                     {user.name}
                   </p>
-                  <p className="text-gray-500 dark:text-gray-400">
+                  <p className="text-gray-500 dark:text-gray-400 truncate">
                     {user.email}
                   </p>
                 </div>
@@ -189,6 +190,7 @@ export default function DashboardPage() {
                 variant="outline"
                 size="sm"
                 onClick={logout}
+                className="w-full sm:w-auto"
               >
                 <LogOut className="w-4 h-4 mr-2" />
                 退出登录
@@ -199,12 +201,12 @@ export default function DashboardPage() {
       </header>
 
       {/* 主内容区 */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
           {/* 左侧：上传区域 */}
           <div className="lg:col-span-2 space-y-6">
-            <Card className="p-6">
-              <div className="flex items-center justify-between mb-4">
+            <Card className="p-4 sm:p-6">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
                 <h2 className="text-xl font-semibold">上传图片</h2>
               </div>
               <ImageUploader
@@ -218,8 +220,8 @@ export default function DashboardPage() {
             </Card>
 
             {/* 图片列表 */}
-            <Card className="p-6">
-              <div className="flex items-center justify-between mb-4">
+            <Card className="p-4 sm:p-6">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
                 <h2 className="text-xl font-semibold">我的图片</h2>
                 <Button
                   variant="outline"
@@ -240,7 +242,7 @@ export default function DashboardPage() {
 
           {/* 右侧：统计和快速操作 */}
           <div className="space-y-6">
-            <Card className="p-6">
+            <Card className="p-4 sm:p-6">
               <h3 className="text-lg font-semibold mb-4">统计信息</h3>
               <div className="space-y-4">
                 <div>
@@ -254,7 +256,7 @@ export default function DashboardPage() {
               </div>
             </Card>
 
-            <Card className="p-6 bg-blue-50 dark:bg-blue-950 border-blue-200">
+            <Card className="p-4 sm:p-6 bg-blue-50 dark:bg-blue-950 border-blue-200">
               <h3 className="text-lg font-semibold mb-2 text-blue-900 dark:text-blue-100">
                 使用提示
               </h3>
@@ -267,7 +269,7 @@ export default function DashboardPage() {
               </ul>
             </Card>
 
-            <Card className="p-6 bg-green-50 dark:bg-green-950 border-green-200">
+            <Card className="p-4 sm:p-6 bg-green-50 dark:bg-green-950 border-green-200">
               <h3 className="text-lg font-semibold mb-2 text-green-900 dark:text-green-100">
                 系统状态（实时）
               </h3>
@@ -283,6 +285,8 @@ export default function DashboardPage() {
                 )}
               </div>
             </Card>
+
+            <UploadTokenManager />
           </div>
         </div>
       </main>
