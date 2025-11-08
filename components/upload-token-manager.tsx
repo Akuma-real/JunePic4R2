@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -21,6 +21,7 @@ export default function UploadTokenManager() {
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState('');
   const [newTokenValue, setNewTokenValue] = useState<string | null>(null);
+  const [copiedField, setCopiedField] = useState<string | null>(null);
 
   const fetchTokens = async () => {
     setLoading(true);
@@ -34,6 +35,39 @@ export default function UploadTokenManager() {
       toast.error('无法获取 token 列表');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const origin = typeof window !== 'undefined'
+    ? window.location.origin
+    : process.env.NEXT_PUBLIC_APP_URL || 'https://your-domain.com';
+
+  const tokenHeader = newTokenValue
+    ? `Bearer ${newTokenValue}`
+    : 'Bearer <粘贴你生成的 Token>';
+
+  const configItems = useMemo(() => (
+    [
+      { label: '配置名 (_configName)', value: 'JunePic4R2' },
+      { label: '接口地址 (endpoint)', value: `${origin}/api/upload/batch` },
+      { label: '请求方法 (method)', value: 'POST' },
+      { label: '表单字段 (formDataKey)', value: 'files' },
+      { label: '请求头 (headers.Authorization)', value: tokenHeader },
+      { label: '请求体 (body)', value: '{}' },
+      { label: '自定义前缀 (customPrefix)', value: '' },
+      { label: '返回路径 (resDataPath)', value: 'results.0.url' },
+    ] as const
+  ), [origin, tokenHeader]);
+
+  const handleCopyField = async (key: string, value: string) => {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopiedField(key);
+      toast.success('已复制');
+      setTimeout(() => setCopiedField(null), 1500);
+    } catch (error) {
+      console.error(error);
+      toast.error('复制失败');
     }
   };
 
@@ -151,23 +185,31 @@ export default function UploadTokenManager() {
         )}
       </div>
 
-      <div className="space-y-2">
-        <h4 className="text-sm font-semibold">PicList 配置示例</h4>
-        <Textarea
-          readOnly
-          className="font-mono text-xs"
-          rows={8}
-          value={`{
-  "_configName": "JunePic4R2",
-  "endpoint": "${process.env.NEXT_PUBLIC_APP_URL || 'https://your-domain.com'}/api/upload/batch",
-  "method": "POST",
-  "formDataKey": "files",
-  "headers": "{\"Authorization\": \"Bearer <你的Token>\"}",
-  "body": "{}",
-  "customPrefix": "",
-  "resDataPath": "results.0.url"
-}`}
-        />
+      <div className="space-y-3">
+        <h4 className="text-sm font-semibold">PicList 参数</h4>
+        <div className="space-y-2">
+          {configItems.map((item) => (
+            <div
+              key={item.label}
+              className="flex flex-col gap-1 rounded border border-gray-200 dark:border-gray-700 p-2 text-xs"
+            >
+              <span className="font-semibold text-gray-700 dark:text-gray-200">{item.label}</span>
+              <div className="flex items-center gap-2">
+                <code className="flex-1 break-all bg-muted/50 dark:bg-muted px-2 py-1 rounded">
+                  {item.value || '（留空）'}
+                </code>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleCopyField(item.label, item.value)}
+                  className="px-2"
+                >
+                  {copiedField === item.label ? '已复制' : '复制'}
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     </Card>
   );
