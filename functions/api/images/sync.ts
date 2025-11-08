@@ -47,14 +47,8 @@ export async function onRequestPost(context: EventContext<Env, never, Record<str
     };
     for (const obj of r2Objects) {
       try {
-        const ownerId = obj.metadata?.userId;
-        if (!ownerId) {
-          skippedCount++;
-          const message = `${obj.key}: 缺少 userId metadata，跳过`;
-          console.warn(message);
-          errors.push(message);
-          continue;
-        }
+        // 单用户模式：若缺少 userId metadata，则默认归属为当前登录用户
+        const ownerId = obj.metadata?.userId || session.userId;
 
         // 检查数据库中是否已存在
         const existingImage = await getImageByStorageKey(

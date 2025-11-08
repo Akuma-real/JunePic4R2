@@ -205,8 +205,9 @@ Cloudflare Pages 负责托管静态 `out/` 目录，并通过 Pages Functions �
 
 8. 上线验证（Dashboard）
    - 打开 `https://<app-url>/auth/signin` 完成 GitHub 登录（仅 `OWNER_EMAIL` 允许登录）。
-   - 进入 `/dashboard`，右侧“系统状态（实时）”应显示 D1/R2/集成状态。
+- 进入 `/dashboard`，右侧“系统状态（实时）”应显示 D1/R2/集成状态。
    - 上传一张图片，确认能在列表中显示；仪表盘应显示“从 R2 同步”按钮（OWNER 为管理员）。
+   - 同步 R2：如果你的 R2 里有历史文件没有 `userId` 元数据，在单用户模式下会自动归属到当前登录用户并入库（不再报“缺少 userId metadata”）。
 
 ## 🎯 使用指南
 
