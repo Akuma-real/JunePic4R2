@@ -316,4 +316,4 @@ MIT License
 
 ---
 
-由 [Claude Code](https://claude.com/claude-code) 生成
+本项目：JunePic4R2（Cloudflare R2 + D1 图床管理）

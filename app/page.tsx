@@ -146,7 +146,7 @@ export default function Home() {
       {/* 页脚 */}
       <footer className="border-t border-gray-200 dark:border-gray-700 mt-20 py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-gray-600 dark:text-gray-400">
-          <p>由 Claude Code 生成 | 基于 Cloudflare R2 和 D1</p>
+          <p>JunePic4R2 | 基于 Cloudflare R2 和 D1</p>
         </div>
       </footer>
     </div>
