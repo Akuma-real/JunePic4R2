@@ -1,0 +1,56 @@
+/**
+ * 健康检查 API
+ *
+ * GET /api/health - 返回 D1 / R2 连通性与集成状态（需登录）
+ */
+
+/// <reference types="@cloudflare/workers-types" />
+
+import { getSessionSecret, verifySession } from '../../lib/auth-helpers';
+
+export async function onRequestGet(context: EventContext<Env, never, Record<string, unknown>>) {
+  const { env, request } = context;
+  try {
+    // 鉴权：需登录
+    const secret = getSessionSecret(env);
+    const session = await verifySession(request, secret);
+    if (!session) {
+      return Response.json({ error: '未授权访问' }, { status: 401 });
+    }
+
+    // 检查 D1
+    let d1Ok = false;
+    let d1Error: string | undefined;
+    try {
+      const row = await env.DB.prepare('SELECT 1 AS ok').first<{ ok: number }>();
+      d1Ok = !!row && Number(row.ok) === 1;
+    } catch (err) {
+      d1Ok = false;
+      d1Error = err instanceof Error ? err.message : String(err);
+    }
+
+    // 检查 R2（列举 1 个对象，失败即视为不可用）
+    let r2Ok = false;
+    let r2Error: string | undefined;
+    try {
+      await env.R2_BUCKET.list({ limit: 1 });
+      r2Ok = true;
+    } catch (err) {
+      r2Ok = false;
+      r2Error = err instanceof Error ? err.message : String(err);
+    }
+
+    const integrationOk = d1Ok && r2Ok;
+
+    return Response.json({
+      success: integrationOk,
+      d1: { ok: d1Ok, error: d1Error },
+      r2: { ok: r2Ok, error: r2Error },
+      integration: { ok: integrationOk },
+    });
+  } catch (error) {
+    console.error('Health error:', error);
+    return Response.json({ error: '健康检查失败' }, { status: 500 });
+  }
+}
+

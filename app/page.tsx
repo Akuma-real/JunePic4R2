@@ -60,7 +60,7 @@ export default function Home() {
             </span>
           </h2>
           <p className="text-xl text-gray-600 dark:text-gray-300 mb-8 max-w-2xl mx-auto">
-            快速、安全、可靠的图片存储解决方案。支持批量上传、智能压缩、相册管理等功能。
+            快速、安全、可靠的图片存储解决方案。支持批量上传、智能压缩、R2 同步等功能。
           </p>
           <div className="flex gap-4 justify-center">
             <Link href="/auth/signin">
@@ -69,7 +69,7 @@ export default function Home() {
               </Button>
             </Link>
             <Link
-              href="https://github.com/anthropics/claude-code"
+              href="https://github.com/akuma/JunePic4R2"
               target="_blank"
             >
               <Button size="lg" variant="outline" className="text-lg px-8">
@@ -107,7 +107,7 @@ export default function Home() {
             </div>
             <h3 className="text-xl font-semibold mb-2">强大功能</h3>
             <p className="text-gray-600 dark:text-gray-400">
-              相册管理、链接生成、API 接口，满足各种使用场景。
+              R2 同步、链接生成、API 接口，满足各种使用场景。
             </p>
           </Card>
         </div>

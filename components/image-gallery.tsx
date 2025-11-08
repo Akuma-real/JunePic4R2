@@ -79,6 +79,33 @@ export default function ImageGallery({
     }
   };
 
+  const copyMarkdown = async (image: Image) => {
+    try {
+      const md = `![${image.filename}](${image.url})`;
+      await navigator.clipboard.writeText(md);
+    } catch (error) {
+      console.error('Copy markdown error:', error);
+    }
+  };
+
+  const copyHTML = async (image: Image) => {
+    try {
+      const html = `<img src="${image.url}" alt="${image.filename}" />`;
+      await navigator.clipboard.writeText(html);
+    } catch (error) {
+      console.error('Copy HTML error:', error);
+    }
+  };
+
+  const copyBBCode = async (image: Image) => {
+    try {
+      const bb = `[img]${image.url}[/img]`;
+      await navigator.clipboard.writeText(bb);
+    } catch (error) {
+      console.error('Copy BBCode error:', error);
+    }
+  };
+
   const handleSync = async () => {
     if (!canSync) return;
     if (!confirm('确定要从 R2 同步图片到数据库吗？')) return;
@@ -219,7 +246,7 @@ export default function ImageGallery({
               </p>
             </div>
 
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
               <Button
                 variant="outline"
                 size="sm"
@@ -237,6 +264,27 @@ export default function ImageGallery({
                     复制链接
                   </>
                 )}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => copyMarkdown(image)}
+              >
+                MD
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => copyHTML(image)}
+              >
+                HTML
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => copyBBCode(image)}
+              >
+                BBCode
               </Button>
               <Button
                 variant="destructive"

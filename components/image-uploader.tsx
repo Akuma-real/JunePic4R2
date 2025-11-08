@@ -9,17 +9,23 @@ import { Progress } from '@/components/ui/progress';
 import { Slider } from '@/components/ui/slider';
 import { compressImages, type CompressionResult } from '@/lib/image-compression';
 
+// 与服务端 /api/upload(/batch) 返回结构对齐；
+// 兼容保留可选的 originalSize/compressed，便于前端展示。
 interface UploadedImage {
   id: string;
   url: string;
   filename: string;
-  size: number;
-  originalSize: number;
-  compressed: boolean;
+  size: number; // 实际写入的文件大小（压缩后或原始）
+  format?: string;
+  createdAt?: number;
+  // 前端派生信息（可选）：
+  originalSize?: number; // 若发生压缩，记录压缩前大小
+  compressed?: boolean;  // 是否经过客户端压缩
 }
 
 interface ImageUploaderProps {
-  onUploadComplete?: (images: UploadedImage[]) => void;
+  // 参数改为可选，兼容仅触发刷新的调用方（不关心具体列表）
+  onUploadComplete?: (images?: UploadedImage[]) => void;
   onUploadError?: (error: string) => void;
   maxFiles?: number;
 }
@@ -138,14 +144,42 @@ export default function ImageUploader({
       }
 
       const data = await response.json() as {
-        results: UploadedImage[];
+        results: Array<{
+          id: string;
+          url: string;
+          filename: string;
+          size: number;
+          format?: string;
+          createdAt?: number;
+        }>;
         errors?: Array<{ filename: string; error: string }>;
       };
 
+      // 将服务端结果与本地压缩统计对齐，补充前端派生信息
+      const compressionMapByName = new Map<string, CompressionResult>();
+      for (const stat of compressionStats) {
+        // stat.file 为实际上传的文件（可能重命名为 .webp）
+        compressionMapByName.set(stat.file.name, stat);
+      }
+
+      const mergedResults: UploadedImage[] = data.results.map((r) => {
+        const stat = compressionMapByName.get(r.filename);
+        return {
+          id: r.id,
+          url: r.url,
+          filename: r.filename,
+          size: r.size,
+          format: r.format,
+          createdAt: r.createdAt,
+          originalSize: stat?.originalSize ?? r.size,
+          compressed: stat ? stat.compressedSize < stat.originalSize : false,
+        };
+      });
+
       setProgress(100);
-      setUploadResults(data.results);
+      setUploadResults(mergedResults);
       setFiles([]);
-      onUploadComplete?.(data.results);
+      onUploadComplete?.(mergedResults);
 
       if (data.errors && data.errors.length > 0) {
         const errorDetails = data.errors

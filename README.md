@@ -1,6 +1,6 @@
 # JunePic4R2 - Cloudflare R2 图床管理系统
 
-基于 Cloudflare R2 和 D1 的现代化图床管理系统，支持图片上传、智能压缩、相册管理、API 接口等功能。
+基于 Cloudflare R2 和 D1 的现代化图床管理系统，支持图片上传、智能压缩、R2 同步、API 接口等功能。
 
 ![Next.js](https://img.shields.io/badge/Next.js-16.0-black)
 ![React](https://img.shields.io/badge/React-19.0-blue)
@@ -11,9 +11,9 @@
 
 - 🚀 **快速上传** - 支持拖拽、粘贴、批量上传图片
 - 🎨 **智能压缩** - 可选 WebP 压缩，自定义质量参数（默认 92%）
-- 📁 **相册管理** - 创建相册，分类管理图片
+- 🔄 **R2 同步** - 一键从 R2 扫描并回填数据库（管理员）
 - 🔗 **链接生成** - 支持多种格式（Markdown、HTML、BBCode 等）
-- 🔐 **安全认证** - OAuth 登录（GitHub/Google）
+- 🔐 **安全认证** - OAuth 登录（GitHub）
 - 🛡️ **防盗链** - Referer 白名单保护
 - 🌍 **全球 CDN** - 基于 Cloudflare R2，自动全球加速
 - 📦 **API 接口** - 兼容 PicGo 等第三方工具
@@ -37,7 +37,6 @@
 
 2. **OAuth 应用**
    - [GitHub OAuth App](https://github.com/settings/developers)
-   - [Google OAuth App](https://console.cloud.google.com/apis/credentials)（可选）
 
 3. **Node.js 环境**
    - Node.js 18+
@@ -120,7 +119,7 @@ GOOGLE_CLIENT_SECRET=your_google_client_secret
 pnpm dev
 ```
 
-访问 http://localhost:3000
+访问 http://localhost:8788
 
 ## 📝 配置说明
 
@@ -134,12 +133,7 @@ pnpm dev
    - Authorization callback URL: `http://localhost:3000/auth/github-callback`
 4. 获取 Client ID 和 Client Secret
 
-### Google OAuth 配置（可选）
-
-1. 访问 https://console.cloud.google.com/apis/credentials
-2. 创建 OAuth 2.0 客户端 ID
-3. 添加授权重定向 URI: `http://localhost:3000/api/auth/callback/google`
-4. 获取 Client ID 和 Client Secret
+<!-- Google OAuth 暂未实现，如需支持请在 Issue 中讨论。 -->
 
 ### 自定义域名配置
 
@@ -159,63 +153,60 @@ pnpm dev
 
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new)
 
-### Cloudflare Pages 部署
+### Cloudflare Pages 部署（官网）
 
-Cloudflare Pages 负责托管静态 `out/` 目录，同时通过 Pages Functions 运行 `functions/` 里的 API。建议按下面顺序一次性完成：
+Cloudflare Pages 负责托管静态 `out/` 目录，并通过 Pages Functions 运行 `functions/` 中的 API。以下步骤全部在 Cloudflare 官网完成：
 
-1. **登录与初始化**
-   ```bash
-   pnpm wrangler login
-   ```
-   确保 `wrangler --version` ≥ 4.46，避免和 D1/R2 新接口不兼容。
+1. 连接仓库并设置构建
+   - 打开 Cloudflare Dashboard → Workers & Pages → Pages → Create a project。
+   - 选择“Connect to GitHub”，关联本仓库。
+   - Build command：`pnpm build`（项目会执行 Next.js 导出到 `out/`）。
+   - Output directory：`out`
+   - Functions 目录：默认识别 `functions/`，无需额外配置（保持开启）。
 
-2. **准备 R2 存储并绑定**
-   ```bash
-   pnpm wrangler r2 bucket create junepic-bucket
-   ```
-   - 在 Cloudflare Dashboard → Workers & Pages → Pages → 你的项目 → Settings → R2 bindings，新增绑定：
-     - Variable name：`R2_BUCKET`
-     - Bucket：刚创建的 bucket
-   - 如果需要自定义 CDN 域名，记得在 R2 Bucket → Public access 中绑定域并把 URL 写入 `R2_PUBLIC_URL`。
+2. 创建 R2 存储桶（Dashboard）
+   - Dashboard → R2 → Create bucket，命名如 `pic`。
+   - 若使用自定义 CDN 域名：在该 Bucket → Public access 绑定域名，记录 `https://<your-r2-domain>`，稍后填入 `R2_PUBLIC_URL`（可选）。
 
-3. **准备 D1 数据库并绑定**
-   ```bash
-   # 创建
-   pnpm wrangler d1 create junepic_db
-   # 迁移（本地 / 远程均可，推荐 remote 与 Pages 共享同一数据）
-   pnpm wrangler d1 execute junepic_db --remote --file=./db/migrations/001_initial_schema.sql
-   ```
-   Dashboard 中为 Pages 项目添加 D1 binding：
-   - Variable name：`DB`
-   - Database：`junepic_db`（或你自己的名字）
+3. 创建 D1 数据库与初始化表（Dashboard）
+   - Dashboard → D1 → Create database，命名如 `junepic_db`。
+   - 进入数据库 → Console，将本仓库 `db/migrations/001_initial_schema.sql` 的内容粘贴执行，完成表结构初始化。
 
-4. **配置环境变量**
-   Cloudflare Pages → Settings → Environment Variables，新增（Production / Preview 都要填）：
-   - `APP_URL`：生产站点域名，例如 `https://pic.example.com`
-   - `SESSION_SECRET`：长度 ≥ 32 的随机字符串（`openssl rand -base64 32`）
-   - `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET`
-   - `ALLOWED_EMAILS`：允许登录的邮箱，逗号分隔
-   - `ADMIN_EMAILS`：拥有同步等敏感操作权限的邮箱
-   - `R2_PUBLIC_URL`（若使用自定义域）
-   - 其它业务相关变量（如 `GOOGLE_*`、`ALLOWED_REFERERS` 等）
+4. 在 Pages 项目绑定 R2 / D1（Dashboard）
+   - Pages → 你的项目 → Settings → Functions → Bindings：
+     - R2 binding：Variable name 设为 `R2_BUCKET`，选择刚创建的 R2 Bucket。
+     - D1 binding：Variable name 设为 `DB`，选择刚创建的 D1 数据库。
 
-5. **构建静态资源**
-   ```bash
-   pnpm install   # 首次部署需要
-   pnpm build     # Next.js 静态导出到 out/
-   ```
+5. 配置环境变量（Dashboard）
+   - 位置：Pages → 你的项目 → Settings → Environment Variables（建议 Production 与 Preview 都填写一致）。
+   - 必填（单用户）：
+     - `APP_URL`：站点公开 URL，如 `https://<project>.pages.dev` 或你的自定义域（用于 OAuth 回调与生成链接）。
+     - `SESSION_SECRET`：长度 ≥ 32 的随机字符串（`openssl rand -base64 32`）。
+     - `GITHUB_CLIENT_ID`：GitHub OAuth 应用的 Client ID。
+     - `GITHUB_CLIENT_SECRET`：GitHub OAuth 应用的 Client Secret。
+     - `OWNER_EMAIL`：唯一允许登录并拥有管理员权限的邮箱（例如 `you@example.com`）。
+   - 绑定（在上一步“Functions → Bindings”中设置，而非 Environment Variables）：
+     - `DB`：Cloudflare D1 绑定（选择上文创建的数据库）。
+     - `R2_BUCKET`：Cloudflare R2 绑定（选择上文创建的 Bucket）。
+   - 可选：
+     - `R2_PUBLIC_URL`：若 R2 绑定了自定义域，填其完整 URL（如 `https://img.example.com`）；留空则应用回退到 `APP_URL/<key>`，由 Functions 代理 R2 对象。
+     - `ALLOWED_REFERERS`：Referer 白名单，逗号分隔，支持通配 `*.example.com`；留空则不启用防盗链校验。
+   - 说明：不需要在 Pages 中配置 `R2_ACCOUNT_ID`/`R2_ACCESS_KEY_ID`/`R2_SECRET_ACCESS_KEY`/`R2_BUCKET_NAME`。这些变量仅用于 Next.js 服务端或本地 S3 兼容模式；本项目在 Pages Functions 中通过 `R2_BUCKET` 绑定直接访问 R2。
 
-6. **部署到 Cloudflare Pages**
-   ```bash
-   pnpm wrangler pages project create junepic4r2 --production-branch main  # 首次创建
-   pnpm wrangler pages deploy out --project-name junepic4r2
-   ```
-   如果仓库托管在 GitHub，也可以直接在 Cloudflare Pages 里创建项目、选择仓库，构建命令填 `pnpm build`，输出目录填 `out`，Wrangler 会自动复用 `functions/`。
+6. 配置 GitHub OAuth 回调（GitHub 官网）
+   - GitHub → Settings → Developer settings → OAuth Apps。
+   - Homepage URL：`APP_URL`
+   - Authorization callback URL：`APP_URL` + `/auth/github-callback`
+   - 将获取到的 Client ID/Secret 填回 Pages 的环境变量。
 
-7. **上线验证**
-   - 打开 `https://<app-url>/auth/signin`，完成 GitHub 登录，确保白名单生效。
-   - 在仪表板上传一张图片，确认 R2 与 D1 都写入成功。
-   - 若需要 R2 → D1 同步，务必用 `ADMIN_EMAILS` 里的账号登录，仪表板才会显示“从 R2 同步”按钮。
+7. 触发构建与发布
+   - 回到 Pages 项目，保存配置后将自动构建部署；或推送一次代码触发新构建。
+   - 可在 Pages → Deployments 查看日志与预览。
+
+8. 上线验证（Dashboard）
+   - 打开 `https://<app-url>/auth/signin` 完成 GitHub 登录（仅 `OWNER_EMAIL` 允许登录）。
+   - 进入 `/dashboard`，右侧“系统状态（实时）”应显示 D1/R2/集成状态。
+   - 上传一张图片，确认能在列表中显示；仪表盘应显示“从 R2 同步”按钮（OWNER 为管理员）。
 
 ## 🎯 使用指南
 
@@ -232,28 +223,23 @@ Cloudflare Pages 负责托管静态 `out/` 目录，同时通过 Pages Functions
 
 ### 链接生成
 
-上传成功后，点击图片可以：
+上传成功后，在图片卡片操作区可：
 - 复制直接链接
 - 复制 Markdown 格式
 - 复制 HTML 格式
 - 复制 BBCode 格式
 
-### 相册管理
-
-- 创建相册分类图片
-- 一张图片可以属于多个相册
-- 设置相册封面
+<!-- 相册管理为后续规划功能，当前版本未提供。 -->
 
 ### API 接口
 
-访问 `/api/upload` 上传图片：
+访问 `/api/upload` 上传图片（需先登录以携带会话 Cookie）：
 
 ```bash
-curl -X POST http://localhost:3000/api/upload \
-  -H "Authorization: Bearer YOUR_API_KEY" \
-  -F "file=@image.jpg" \
-  -F "compress=true" \
-  -F "quality=0.92"
+curl -X POST http://localhost:8788/api/upload \
+  -F "file=@image.jpg"
+
+说明：压缩已在前端完成（Canvas/WebP），该接口不处理 `compress`/`quality` 参数。
 ```
 
 ## 🔧 开发
@@ -262,22 +248,24 @@ curl -X POST http://localhost:3000/api/upload \
 
 ```
 JunePic4R2/
-├── app/                    # Next.js App Router
-│   ├── api/               # API 路由
-│   ├── auth/              # 认证页面
-│   ├── dashboard/         # 仪表板
+├── app/                    # Next.js App Router（静态导出）
+│   ├── auth/              # 认证页面（前端）
+│   ├── dashboard/         # 仪表板（前端）
 │   └── page.tsx           # 主页
+├── functions/             # Cloudflare Pages Functions（API 与鉴权）
+│   ├── api/               # /api/* 路由：上传/列表/删除/同步
+│   └── auth/              # /auth/* 路由：登录/回调/登出/我
 ├── components/            # React 组件
 │   ├── ui/               # shadcn/ui 组件
-│   └── image-uploader.tsx # 上传组件
+│   ├── image-uploader.tsx # 上传组件
+│   └── image-gallery.tsx  # 图片列表/复制
 ├── lib/                   # 工具库
 │   ├── auth-helpers.ts   # Session 工具（Workers/Next 通用）
 │   ├── r2.ts             # R2 工具
 │   ├── db-queries.ts     # D1 查询（纯函数）
 │   └── server-upload.ts  # 上传与入库共用逻辑（Workers）
 ├── db/                    # 数据库
-│   ├── migrations/       # SQL 迁移文件
-│   └── README.md         # 数据库文档
+│   └── migrations/       # SQL 迁移文件
 └── public/               # 静态资源
 ```
 

@@ -1,7 +1,7 @@
 /**
  * 同步 API
  *
- * POST /api/sync - 同步 R2 中的文件到数据库
+ * POST /api/images/sync - 从 R2 扫描并回填数据库（管理员）
  */
 
 /// <reference types="@cloudflare/workers-types" />

@@ -18,7 +18,7 @@ function generateState(): string {
 }
 
 export async function onRequestGet(context: EventContext<Env, never, Record<string, unknown>>) {
-  const { GITHUB_CLIENT_ID, APP_URL, ALLOWED_EMAILS } = context.env;
+  const { GITHUB_CLIENT_ID, APP_URL, OWNER_EMAIL } = context.env;
 
   if (!GITHUB_CLIENT_ID || !APP_URL) {
     return Response.json(
@@ -27,11 +27,11 @@ export async function onRequestGet(context: EventContext<Env, never, Record<stri
     );
   }
 
-  // 若未配置 ALLOWED_EMAILS，则禁止任何人登录（提前阻断）
-  const hasAllowlist = typeof ALLOWED_EMAILS === 'string' && ALLOWED_EMAILS.trim().length > 0;
-  if (!hasAllowlist) {
+  // 单用户模式：必须配置 OWNER_EMAIL（提前阻断避免无意义的 OAuth 往返）
+  const hasOwner = typeof OWNER_EMAIL === 'string' && OWNER_EMAIL.trim().length > 0;
+  if (!hasOwner) {
     const headers = new Headers();
-    headers.set('Location', `${APP_URL}/auth/signin?error=${encodeURIComponent('登录已禁用：未配置允许的邮箱')}`);
+    headers.set('Location', `${APP_URL}/auth/signin?error=${encodeURIComponent('登录已禁用：未配置 OWNER_EMAIL')}`);
     return new Response(null, { status: 302, headers });
   }
 

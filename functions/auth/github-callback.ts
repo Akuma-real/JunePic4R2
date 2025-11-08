@@ -136,31 +136,21 @@ export async function onRequestGet(context: EventContext<Env, never, Record<stri
       throw new Error('No verified email found');
     }
 
-    // 3. 邮箱白名单校验（未配置则禁止任何登录；配置后仅允许白名单）
-    const allowRaw = context.env.ALLOWED_EMAILS;
-    const allowedList = (allowRaw || '')
-      .split(',')
-      .map((s) => s.trim().toLowerCase())
-      .filter(Boolean);
-    const adminRaw = context.env.ADMIN_EMAILS;
-    const adminList = (adminRaw || '')
-      .split(',')
-      .map((s) => s.trim().toLowerCase())
-      .filter(Boolean);
-
-    if (allowedList.length === 0) {
+    // 3. 单用户校验：仅允许 OWNER_EMAIL 登录，并授予管理员权限
+    const owner = (context.env.OWNER_EMAIL || '').trim().toLowerCase();
+    if (!owner) {
       const headers = new Headers();
-      headers.set('Location', `${APP_URL}/auth/signin?error=${encodeURIComponent('登录已禁用：未配置允许的邮箱')}`);
+      headers.set('Location', `${APP_URL}/auth/signin?error=${encodeURIComponent('登录已禁用：未配置 OWNER_EMAIL')}`);
       return new Response(null, { status: 302, headers });
     }
 
     const normalizedEmail = primaryEmail.toLowerCase();
-    if (!allowedList.includes(normalizedEmail)) {
+    if (normalizedEmail !== owner) {
       const headers = new Headers();
       headers.set('Location', `${APP_URL}/auth/signin?error=${encodeURIComponent('该邮箱未被允许登录')}`);
       return new Response(null, { status: 302, headers });
     }
-    const isAdmin = adminList.includes(normalizedEmail);
+    const isAdmin = true;
 
     // 4. 创建或更新用户
     const user = await upsertUserFromGitHub(DB, {

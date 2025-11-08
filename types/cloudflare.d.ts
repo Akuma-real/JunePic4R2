@@ -14,6 +14,7 @@ declare global {
     SESSION_SECRET: string;
     GITHUB_CLIENT_ID: string;
     GITHUB_CLIENT_SECRET: string;
+    OWNER_EMAIL: string; // 单用户模式：唯一允许登录且为管理员的邮箱
 
     // R2 配置（用于 S3 兼容模式）
     R2_ACCOUNT_ID?: string;
@@ -27,12 +28,6 @@ declare global {
 
     // 可选：Referer 白名单
     ALLOWED_REFERERS?: string;
-
-    // 可选：允许登录的邮箱白名单（逗号分隔）。未设置时禁止任何登录
-    ALLOWED_EMAILS?: string;
-
-    // 可选：管理员邮箱白名单（逗号分隔）。仅这些邮箱被视为管理员
-    ADMIN_EMAILS?: string;
   }
 }
 

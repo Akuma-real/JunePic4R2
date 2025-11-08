@@ -15,6 +15,18 @@ interface Stats {
   totalSizeMB: string;
 }
 
+type MaybeBool = boolean | null;
+
+interface HealthState {
+  d1: MaybeBool;
+  r2: MaybeBool;
+  integration: MaybeBool;
+  errors?: {
+    d1?: string;
+    r2?: string;
+  };
+}
+
 export default function DashboardPage() {
   const { user, loading, logout } = useAuth();
   const router = useRouter();
@@ -23,6 +35,7 @@ export default function DashboardPage() {
     totalSizeMB: '0',
   });
   const [refreshKey, setRefreshKey] = useState(0);
+  const [health, setHealth] = useState<HealthState>({ d1: null, r2: null, integration: null });
 
   useEffect(() => {
     if (!loading && !user) {
@@ -46,6 +59,33 @@ export default function DashboardPage() {
 
     fetchStats();
   }, [refreshKey]);
+
+  // 获取健康状态
+  useEffect(() => {
+    const fetchHealth = async () => {
+      try {
+        const res = await fetch('/api/health');
+        if (!res.ok) throw new Error(`status ${res.status}`);
+        const data = await res.json() as {
+          d1: { ok: boolean; error?: string };
+          r2: { ok: boolean; error?: string };
+          integration: { ok: boolean };
+        };
+        setHealth({
+          d1: data.d1.ok,
+          r2: data.r2.ok,
+          integration: data.integration.ok,
+          errors: { d1: data.d1.error, r2: data.r2.error },
+        });
+      } catch (e) {
+        console.error('Failed to fetch health:', e);
+        setHealth({ d1: null, r2: null, integration: null });
+      }
+    };
+    fetchHealth();
+  }, [refreshKey]);
+
+  const mark = (v: MaybeBool) => (v === null ? '…' : v ? '✅' : '❌');
 
   if (loading) {
     return (
@@ -188,12 +228,18 @@ export default function DashboardPage() {
 
             <Card className="p-6 bg-green-50 dark:bg-green-950 border-green-200">
               <h3 className="text-lg font-semibold mb-2 text-green-900 dark:text-green-100">
-                数据库状态
+                系统状态（实时）
               </h3>
               <div className="text-sm text-green-800 dark:text-green-200 space-y-1">
-                <p>✅ 本地 SQLite 数据库</p>
-                <p>✅ Cloudflare R2 存储</p>
-                <p>✅ 完全集成</p>
+                <p>{mark(health.d1)} Cloudflare D1（SQLite）</p>
+                <p>{mark(health.r2)} Cloudflare R2 存储</p>
+                <p>{mark(health.integration)} 集成（API ↔ D1 ↔ R2）</p>
+                {(health.errors?.d1 || health.errors?.r2) && (
+                  <p className="text-xs text-red-700 dark:text-red-300 mt-2">
+                    {health.errors?.d1 && `D1: ${health.errors.d1} `}
+                    {health.errors?.r2 && `R2: ${health.errors.r2}`}
+                  </p>
+                )}
               </div>
             </Card>
           </div>

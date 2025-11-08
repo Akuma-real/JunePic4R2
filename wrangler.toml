@@ -7,7 +7,7 @@ compatibility_date = "2025-01-06"
 [[d1_databases]]
 binding = "DB" # 在 Pages Functions 中通过 context.env.DB 访问
 database_name = "junepic_db"
-database_id = "8014f39c-4b99-43b3-8922-4d64c2a9326a"
+database_id = "281975b0-090d-4d56-ab40-da68672d9c2a"
 
 # R2 存储绑定
 # 1. 创建 bucket: wrangler r2 bucket create pic
@@ -25,8 +25,8 @@ APP_URL = "https://your-domain.com"  # 替换为你的域名
 R2_PUBLIC_URL = "https://your-r2-domain.com"  # 替换为你的 R2 公共域名
 # 可选：Referer 白名单（逗号分隔，支持通配 *.example.com）。留空则不启用校验
 # ALLOWED_REFERERS = "yourdomain.com,*.yourdomain.com"
-# 登录邮箱白名单（逗号分隔）。未设置时禁止任何登录
-# ALLOWED_EMAILS = "user1@example.com,user2@example.com"
+# 单用户邮箱（唯一允许登录并为管理员）
+# OWNER_EMAIL = "you@example.com"
 
 # Pages Functions 配置
 # Pages Functions 会自动从 functions/ 目录读取
