@@ -1,5 +1,6 @@
 name = "junepic4r2"
 compatibility_date = "2025-01-06"
+pages_build_output_dir = "out"
 
 # D1 数据库绑定
 # 1. 创建数据库: pnpm wrangler d1 create junepic_db
