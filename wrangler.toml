@@ -1,10 +1,9 @@
 name = "junepic4r2"
 compatibility_date = "2025-01-06"
-pages_build_output_dir = "out"
 
-# 最小化配置：仅用于本地 dev 绑定与 Pages 输出目录。
-# 生产环境的环境变量与绑定请在 Cloudflare Pages Dashboard 配置，
-# 本文件不再包含任何 [vars]（避免在构建日志中显示占位值）。
+# 最小化配置：仅用于本地 wrangler pages dev 绑定。
+# 生产环境的环境变量与绑定请在 Cloudflare Pages Dashboard 配置。
+# 注意：未包含 pages_build_output_dir，Pages 将忽略本文件（恢复 Dashboard 管理）。
 
 [[d1_databases]]
 binding = "DB"              # 本地 wrangler pages dev 使用；线上请在 Dashboard 绑定
