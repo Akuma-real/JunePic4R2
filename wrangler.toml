@@ -2,33 +2,15 @@ name = "junepic4r2"
 compatibility_date = "2025-01-06"
 pages_build_output_dir = "out"
 
-# D1 数据库绑定
-# 1. 创建数据库: pnpm wrangler d1 create junepic_db
-# 2. 应用迁移: pnpm wrangler d1 execute junepic_db --file=./db/migrations/001_initial_schema.sql
+# 最小化配置：仅用于本地 dev 绑定与 Pages 输出目录。
+# 生产环境的环境变量与绑定请在 Cloudflare Pages Dashboard 配置，
+# 本文件不再包含任何 [vars]（避免在构建日志中显示占位值）。
+
 [[d1_databases]]
-binding = "DB" # 在 Pages Functions 中通过 context.env.DB 访问
+binding = "DB"              # 本地 wrangler pages dev 使用；线上请在 Dashboard 绑定
 database_name = "junepic_db"
 database_id = "281975b0-090d-4d56-ab40-da68672d9c2a"
 
-# R2 存储绑定
-# 1. 创建 bucket: wrangler r2 bucket create pic
-# 2. 在 Pages Functions 中通过 context.env.R2_BUCKET 访问
 [[r2_buckets]]
-binding = "R2_BUCKET"
+binding = "R2_BUCKET"       # 本地 wrangler pages dev 使用；线上请在 Dashboard 绑定
 bucket_name = "pic"
-
-# 环境变量（敏感信息应使用 Cloudflare Dashboard 配置）
-# Settings > Environment Variables in Cloudflare Pages
-# 敏感数据：SESSION_SECRET, GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET
-[vars]
-ENVIRONMENT = "production"
-APP_URL = "https://your-domain.com"  # 替换为你的域名
-R2_PUBLIC_URL = "https://your-r2-domain.com"  # 替换为你的 R2 公共域名
-# 可选：Referer 白名单（逗号分隔，支持通配 *.example.com）。留空则不启用校验
-# ALLOWED_REFERERS = "yourdomain.com,*.yourdomain.com"
-# 单用户邮箱（唯一允许登录并为管理员）
-# OWNER_EMAIL = "you@example.com"
-
-# Pages Functions 配置
-# Pages Functions 会自动从 functions/ 目录读取
-# 无需额外配置，部署时会自动生效
