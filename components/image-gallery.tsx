@@ -5,7 +5,7 @@ import NextImage from 'next/image';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
-import { Trash2, Copy, Check, ExternalLink, RefreshCw } from 'lucide-react';
+import { Trash2, Copy, ExternalLink, RefreshCw } from 'lucide-react';
 import { format } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -55,7 +55,6 @@ export default function ImageGallery({
   const [images, setImages] = useState<Image[]>([]);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
-  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const fetchImages = async () => {
     try {
@@ -85,21 +84,21 @@ export default function ImageGallery({
         setImages(images.filter((img) => img.id !== id));
         onImageDeleted?.();
       } else {
-        toast({ variant: 'destructive', title: '删除失败', description: '服务器未返回成功状态' });
+        toast.error('删除失败', { description: '服务器未返回成功状态' });
       }
     } catch (error) {
       console.error('Delete error:', error);
-      toast({ variant: 'destructive', title: '删除失败', description: error instanceof Error ? error.message : '未知错误' });
+      toast.error('删除失败', { description: error instanceof Error ? error.message : '未知错误' });
     }
   };
 
-  const copyToClipboard = async (url: string, id: string) => {
+  const copyToClipboard = async (url: string) => {
     try {
       await navigator.clipboard.writeText(url);
-      setCopiedId(id);
-      setTimeout(() => setCopiedId(null), 2000);
+      toast.success('已复制直链');
     } catch (error) {
       console.error('Copy error:', error);
+      toast.error('复制失败');
     }
   };
 
@@ -145,18 +144,17 @@ export default function ImageGallery({
           errors?: string[];
         };
         const errorDetails = data.errors && data.errors.length > 0 ? `\n${data.errors.slice(0,5).join('\n')}` : '';
-        toast({
-          title: '同步完成',
+        toast.success('同步完成', {
           description: `总计: ${data.stats.total}，新增: ${data.stats.added}，跳过: ${data.stats.skipped}，错误: ${data.stats.errors}${errorDetails}`,
         });
         // 重新加载图片列表
         fetchImages();
       } else {
-        toast({ variant: 'destructive', title: '同步失败', description: '服务端返回非 200' });
+        toast.error('同步失败', { description: '服务端返回非 200' });
       }
     } catch (error) {
       console.error('Sync error:', error);
-      toast({ variant: 'destructive', title: '同步失败', description: error instanceof Error ? error.message : '未知错误' });
+      toast.error('同步失败', { description: error instanceof Error ? error.message : '未知错误' });
     } finally {
       setSyncing(false);
     }
@@ -318,7 +316,7 @@ export default function ImageGallery({
                 <DropdownMenuContent align="start">
                   <DropdownMenuLabel>复制</DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => copyToClipboard(image.url, image.id)}>
+                  <DropdownMenuItem onClick={() => copyToClipboard(image.url)}>
                     <Copy className="w-3 h-3 mr-1" />
                     复制直链
                     <DropdownMenuShortcut>Ctrl+C</DropdownMenuShortcut>

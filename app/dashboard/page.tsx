@@ -211,7 +211,7 @@ export default function DashboardPage() {
                 onUploadComplete={handleUploadComplete}
                 onUploadError={(error) => {
                   console.error('上传错误:', error);
-                  toast({ variant: 'destructive', title: '上传失败', description: String(error) });
+                  toast.error('上传失败', { description: String(error) });
                 }}
                 maxFiles={20}
               />
