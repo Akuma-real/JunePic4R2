@@ -9,6 +9,7 @@ import { Trash2, Copy, ExternalLink, RefreshCw } from 'lucide-react';
 import { format } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
 import { Skeleton } from '@/components/ui/skeleton';
+import Lightbox from '@/components/lightbox';
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -55,6 +56,8 @@ export default function ImageGallery({
   const [images, setImages] = useState<Image[]>([]);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
 
   const fetchImages = async () => {
     try {
@@ -260,9 +263,15 @@ export default function ImageGallery({
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">{images.map((image) => (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">{images.map((image, idx) => (
         <Card key={image.id} className="overflow-hidden">
-          <div className="aspect-video bg-gray-100 dark:bg-gray-800 relative group">
+          <div
+            className="aspect-video bg-gray-100 dark:bg-gray-800 relative group cursor-zoom-in"
+            onClick={() => {
+              setLightboxIndex(idx);
+              setLightboxOpen(true);
+            }}
+          >
             <NextImage
               src={image.url}
               alt={image.filename}
@@ -274,8 +283,12 @@ export default function ImageGallery({
             <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button asChild variant="outline" size="icon" className="bg-white hover:bg-gray-100">
-                    <a href={image.url} target="_blank" rel="noopener noreferrer">
+                  <Button asChild variant="outline" size="icon" className="bg-white hover:bg-gray-100"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                    }}
+                  >
+                    <a href={image.url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
                       <ExternalLink className="w-5 h-5 text-gray-700" />
                     </a>
                   </Button>
@@ -358,6 +371,19 @@ export default function ImageGallery({
         </Card>
       ))}
       </div>
+      {/* Lightbox viewer */}
+      <Lightbox
+        open={lightboxOpen}
+        onOpenChange={setLightboxOpen}
+        images={images.map((img) => ({
+          src: img.url,
+          alt: img.filename,
+          width: img.width,
+          height: img.height,
+        }))}
+        index={lightboxIndex}
+        onIndexChange={setLightboxIndex}
+      />
     </div>
   );
 }
