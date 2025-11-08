@@ -7,7 +7,10 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Slider } from '@/components/ui/slider';
+import { Switch } from '@/components/ui/switch';
 import { compressImages, type CompressionResult } from '@/lib/image-compression';
+import { useForm } from 'react-hook-form';
+import { Form, FormField, FormItem, FormLabel, FormControl, FormDescription } from '@/components/ui/form';
 
 // 与服务端 /api/upload(/batch) 返回结构对齐；
 // 兼容保留可选的 originalSize/compressed，便于前端展示。
@@ -45,6 +48,9 @@ export default function ImageUploader({
   const [currentPhase, setCurrentPhase] = useState<'idle' | 'compressing' | 'uploading'>('idle');
   const [usedCompression, setUsedCompression] = useState(false);
   const [skippedCompressionFiles, setSkippedCompressionFiles] = useState<string[]>([]);
+  const form = useForm<{ compress: boolean; quality: number }>({
+    defaultValues: { compress, quality },
+  });
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     setFiles((prev) => [...prev, ...acceptedFiles].slice(0, maxFiles));
@@ -233,48 +239,65 @@ export default function ImageUploader({
       {/* 上传选项 */}
       <Card className="p-6">
         <h3 className="text-lg font-semibold mb-4">上传设置</h3>
+        <Form {...form}>
+          <form className="space-y-4" onSubmit={(e) => e.preventDefault()}>
+            <FormField
+              control={form.control}
+              name="compress"
+              render={() => (
+                <FormItem className="flex items-center justify-between gap-4">
+                  <FormLabel className="text-sm">WebP 压缩</FormLabel>
+                  <FormControl>
+                    <Switch
+                      checked={compress}
+                      onCheckedChange={(next) => {
+                        const v = !!next;
+                        setCompress(v);
+                        form.setValue('compress', v);
+                        if (!v) setSkippedCompressionFiles([]);
+                      }}
+                    />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
 
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <label className="text-sm font-medium">WebP 压缩</label>
-            <Button
-              variant={compress ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => {
-                const next = !compress;
-                setCompress(next);
-                if (!next) {
-                  setSkippedCompressionFiles([]);
-                }
-              }}
-            >
-              {compress ? '已启用' : '已禁用'}
-            </Button>
-          </div>
-
-          {compress && (
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <label className="text-sm font-medium">压缩质量</label>
-                <span className="text-sm text-gray-500">{quality}%</span>
-              </div>
-              <Slider
-                value={[quality]}
-                onValueChange={(value) => setQuality(value[0])}
-                min={10}
-                max={100}
-                step={1}
-                className="w-full"
+            {compress && (
+              <FormField
+                control={form.control}
+                name="quality"
+                render={() => (
+                  <FormItem>
+                    <div className="flex items-center justify-between">
+                      <FormLabel className="text-sm">压缩质量</FormLabel>
+                      <span className="text-sm text-gray-500">{quality}%</span>
+                    </div>
+                    <FormControl>
+                      <Slider
+                        value={[quality]}
+                        onValueChange={(value) => {
+                          const v = value[0];
+                          setQuality(v);
+                          form.setValue('quality', v);
+                        }}
+                        min={10}
+                        max={100}
+                        step={1}
+                        className="w-full"
+                      />
+                    </FormControl>
+                    <FormDescription className="text-xs text-gray-500">
+                      92% 可获得最佳质量与文件大小的平衡
+                    </FormDescription>
+                    <p className="text-xs text-amber-600 dark:text-amber-300">
+                      ⚠️ 启用压缩会将图片转换为静态 WebP，检测到动图会自动跳过并上传原文件。
+                    </p>
+                  </FormItem>
+                )}
               />
-              <p className="text-xs text-gray-500">
-                92% 可获得最佳质量与文件大小的平衡
-              </p>
-              <p className="text-xs text-amber-600 dark:text-amber-300">
-                ⚠️ 启用压缩会将图片转换为静态 WebP，检测到动图会自动跳过并上传原文件。
-              </p>
-            </div>
-          )}
-        </div>
+            )}
+          </form>
+        </Form>
       </Card>
 
       {/* 拖拽上传区域 */}

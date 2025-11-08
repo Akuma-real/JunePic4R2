@@ -2,6 +2,9 @@
 
 import { Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { Button } from '@/components/ui/button';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Skeleton } from '@/components/ui/skeleton';
 
 function SignInContent() {
   const searchParams = useSearchParams();
@@ -25,18 +28,16 @@ function SignInContent() {
           </div>
 
           {error && (
-            <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-              <p className="text-sm text-red-600 dark:text-red-400">
+            <Alert variant="destructive" className="mb-6">
+              <AlertTitle>登录失败</AlertTitle>
+              <AlertDescription>
                 {decodeURIComponent(error)}
-              </p>
-            </div>
+              </AlertDescription>
+            </Alert>
           )}
 
           <div className="space-y-4">
-            <button
-              onClick={handleSignIn}
-              className="w-full flex items-center justify-center gap-3 px-4 py-3 bg-gray-900 hover:bg-gray-800 dark:bg-gray-700 dark:hover:bg-gray-600 text-white rounded-lg transition-colors"
-            >
+            <Button onClick={handleSignIn} className="w-full flex items-center justify-center gap-3">
               <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
                 <path
                   fillRule="evenodd"
@@ -45,7 +46,7 @@ function SignInContent() {
                 />
               </svg>
               <span>使用 GitHub 登录</span>
-            </button>
+            </Button>
           </div>
 
           <p className="mt-8 text-center text-sm text-gray-600 dark:text-gray-400">
@@ -60,8 +61,22 @@ function SignInContent() {
 export default function SignInPage() {
   return (
     <Suspense fallback={
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="text-gray-600">Loading...</div>
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 px-4">
+        <div className="w-full max-w-md">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8">
+            <div className="text-center mb-8 space-y-2">
+              <Skeleton className="h-8 w-40 mx-auto" />
+              <Skeleton className="h-4 w-56 mx-auto" />
+            </div>
+            <div className="space-y-3">
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+            </div>
+            <div className="mt-8 text-center">
+              <Skeleton className="h-4 w-48 mx-auto" />
+            </div>
+          </div>
+        </div>
       </div>
     }>
       <SignInContent />

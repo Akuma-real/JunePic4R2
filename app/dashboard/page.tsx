@@ -9,6 +9,8 @@ import ImageGallery from '@/components/image-gallery';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { LogOut, Image as ImageIcon, RefreshCw } from 'lucide-react';
+import { toast } from 'sonner';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface Stats {
   imageCount: number;
@@ -89,8 +91,47 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+        <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 h-16" />
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="lg:col-span-2 space-y-6">
+              <Card className="p-6 space-y-4">
+                <Skeleton className="h-6 w-32" />
+                <Skeleton className="h-40 w-full" />
+              </Card>
+              <Card className="p-6 space-y-4">
+                <div className="flex items-center justify-between">
+                  <Skeleton className="h-6 w-24" />
+                  <Skeleton className="h-8 w-20" />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {Array.from({ length: 6 }).map((_, i) => (
+                    <Card key={i} className="overflow-hidden">
+                      <Skeleton className="aspect-video w-full" />
+                      <div className="p-4 space-y-2">
+                        <Skeleton className="h-4 w-2/3" />
+                        <Skeleton className="h-3 w-1/2" />
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              </Card>
+            </div>
+            <div className="space-y-6">
+              <Card className="p-6 space-y-4">
+                <Skeleton className="h-6 w-24" />
+                <Skeleton className="h-8 w-40" />
+                <Skeleton className="h-8 w-32" />
+              </Card>
+              <Card className="p-6 space-y-2">
+                <Skeleton className="h-6 w-24" />
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-5/6" />
+              </Card>
+            </div>
+          </div>
+        </main>
       </div>
     );
   }
@@ -170,7 +211,7 @@ export default function DashboardPage() {
                 onUploadComplete={handleUploadComplete}
                 onUploadError={(error) => {
                   console.error('上传错误:', error);
-                  alert(`上传失败: ${error}`);
+                  toast({ variant: 'destructive', title: '上传失败', description: String(error) });
                 }}
                 maxFiles={20}
               />
