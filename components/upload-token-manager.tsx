@@ -44,7 +44,7 @@ export default function UploadTokenManager() {
 
   const tokenHeader = newTokenValue
     ? `Bearer ${newTokenValue}`
-    : 'Bearer <粘贴你生成的 Token>';
+    : '{Bearer <粘贴你生成的 Token>}';
 
   const configItems = useMemo(() => (
     [
