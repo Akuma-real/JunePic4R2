@@ -226,10 +226,10 @@ Cloudflare Workers 环境不支持 Sharp 等原生 Node 模块。项目采用“
 
 ### R2 上传失败
 
-检查：
-1. R2 凭证是否正确
-2. 存储桶名称是否匹配
-3. Account ID 是否正确
+在 Cloudflare Pages Functions 中，R2 访问通过绑定完成，不依赖 Access Key。若上传失败，请确认：
+1. Pages 项目 → Settings → Functions → Bindings 中存在名为 `R2_BUCKET` 的绑定，并指向正确的 R2 存储桶。
+2. 若开启数据库写入，同页的 `DB` 绑定指向有效的 D1 数据库，且已执行初始化 SQL。
+3. Pages 项目 → Settings → Environment Variables 中的 `APP_URL`（以及如使用自定义域名则填写的 `R2_PUBLIC_URL`）与实际访问域名一致，避免生成的回调或外链异常。
 
 ## 📄 许可证
 
