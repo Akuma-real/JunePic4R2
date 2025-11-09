@@ -162,6 +162,24 @@ Cloudflare Pages 负责托管静态 `out/` 目录，并通过 Pages Functions �
 - 复制 HTML 格式
 - 复制 BBCode 格式
 
+### PicList 客户端上传
+
+1. 登录 `/dashboard` 并在「上传 Token」卡片中生成一个 Token（仅生成时可见完整内容，记得立即复制保存）。
+2. 在 PicList 中新增高级自定义图床，并填写下表中的参数：
+
+| PicList 字段 | 填写内容 |
+| --- | --- |
+| `_configName` | `JunePic4R2`（随意命名即可） |
+| `endpoint` | `https://<你的域名>/api/upload/batch` |
+| `method` | `POST` |
+| `formDataKey` | `files` |
+| `headers.Authorization` | `{Bearer <刚才生成的 Token>}` |
+| `body` | `{}` |
+| `customPrefix` | 留空 |
+| `resDataPath` | `results.0.url` |
+
+3. 保存后即可在 PicList 内直接上传，成功后会返回图床 URL；如需吊销，回到仪表盘删除对应 Token 即可。
+
 ## 🛠️ 运维与排障
 
 ### 健康检查 API
