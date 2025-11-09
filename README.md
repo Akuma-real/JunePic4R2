@@ -44,6 +44,25 @@
 
 准备就绪后，请直接参照下文的「[📦 部署：Cloudflare Pages](#-部署cloudflare-pages)」完成部署与发布。
 
+## 💰 Cloudflare 免费额度消耗说明
+
+部署本项目会使用到 Cloudflare R2、D1、Pages Functions 等资源。按照 2024 年 6 月的官方定价与免费额度，常见的消耗情况可参考下列指标（实际以 Cloudflare 控制台显示为准）：
+
+- **R2 存储桶**
+  - 免费额度：10 GB 存储容量、100 万次 Class A 请求、1000 万次 Class B 请求。
+  - 本项目会在上传、列举对象、同步元数据时分别占用 Class A / Class B 请求。日常图床使用（数百张图片、日均数百次访问）通常仍在免费额度内。
+- **R2 外网流量**
+  - Cloudflare 官方宣称零 egress 费用，但若通过自定义域名直接暴露 R2，将计入免费 10 GB/月的“Public Bucket Egress”额度。超出后按标准价计费。
+  - 通过 Cloudflare Pages Functions 代理访问时，流量归属 Pages，不再占用 R2 egress 配额。
+- **D1 数据库**
+  - 免费额度：每日 10 万次读取、2.5 万次写入、1 GB 存储空间。
+  - 本项目上传图片时会写入一条记录；仪表盘查询、链接生成会产生读取请求。除非高频批量操作，一般处于免费档。
+- **Pages Functions**
+  - 免费额度：10 万次请求/天（合并生产与预览环境）。
+  - 图片读取如果走 Functions 代理，也会计入该请求次数；可根据访问量评估是否需要开启自定义域名直连 R2。
+
+建议在 Cloudflare Dashboard → Billing → Usage 中定期查看实际用量，及时调整使用策略（例如开启 CDN 缓存、适量压缩图片）以避免超出免费额度。
+
 ## 📝 配置说明
 
 ### GitHub OAuth 配置
