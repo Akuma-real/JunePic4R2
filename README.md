@@ -64,7 +64,7 @@
 
 1. R2 -> 你的存储桶 -> Settings -> Public access
 2. 添加自定义域名
-3. 更新 `.env.local` 中的 `R2_PUBLIC_URL`
+3. 在环境变量配置中更新 `R2_PUBLIC_URL`（可选，仅在你希望通过自定义域名直接生成外链时填写）
 
 ## 📦 部署：Cloudflare Pages
 
