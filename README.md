@@ -113,7 +113,7 @@ Cloudflare Pages 负责托管静态 `out/` 目录，并通过 Pages Functions �
    - 位置：Pages → 你的项目 → Settings → Environment Variables（建议 Production 与 Preview 都填写一致）。
    - 必填（单用户）：
      - `APP_URL`：站点公开 URL，如 `https://<project>.pages.dev` 或你的自定义域（用于 OAuth 回调与生成链接）。
-     - `SESSION_SECRET`：长度 ≥ 32 的随机字符串（`openssl rand -base64 32`）。
+     - `SESSION_SECRET`：长度必须 ≥ 32 的随机字符串（推荐使用 `openssl rand -base64 32` 生成，低于 32 将导致会话校验失败）。
      - `GITHUB_CLIENT_ID`：GitHub OAuth 应用的 Client ID。
      - `GITHUB_CLIENT_SECRET`：GitHub OAuth 应用的 Client Secret。
      - `OWNER_EMAIL`：唯一允许登录并拥有管理员权限的邮箱（例如 `you@example.com`）。
@@ -161,6 +161,14 @@ Cloudflare Pages 负责托管静态 `out/` 目录，并通过 Pages Functions �
 - 复制 Markdown 格式
 - 复制 HTML 格式
 - 复制 BBCode 格式
+
+## 🛠️ 运维与排障
+
+### 健康检查 API
+
+- 访问路径：`/api/health`
+- 仅限已登录管理员访问，未认证的请求将返回 `401 Unauthorized`，并不会执行 D1 / R2 检测。
+- 在 Cloudflare Pages 环境中，确保 `SESSION_SECRET` 的长度不小于 32 字符；否则会话无法通过校验，健康检查也会被判定为未授权。
 
 <!-- 相册管理为后续规划功能，当前版本未提供。 -->
 

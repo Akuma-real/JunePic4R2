@@ -11,10 +11,38 @@ import { getSessionSecret, verifySession } from '../../lib/auth-helpers';
 export async function onRequestGet(context: EventContext<Env, never, Record<string, unknown>>) {
   const { env, request } = context;
   try {
+    // 可选鉴权：若具备 SESSION_SECRET 则尝试解析 cookie，失败不报错
+    const hasSessionSecret =
+      typeof env.SESSION_SECRET === 'string' && env.SESSION_SECRET.length >= 32;
+    let authenticated = false;
+    if (hasSessionSecret) {
+      try {
+        const secret = getSessionSecret(env);
+        const session = await verifySession(request, secret);
+        authenticated = !!session;
+      } catch {
+        authenticated = false;
+      }
+    }
+
+    if (!authenticated) {
+      return Response.json(
+        {
+          success: false,
+          d1: { ok: false, error: '未授权' },
+          r2: { ok: false, error: '未授权' },
+          integration: { ok: false },
+          env: null,
+          auth: { authenticated },
+        },
+        { status: 401 },
+      );
+    }
+
     // 环境变量就绪（仅返回布尔，不回显值）
     const envOk = {
       appUrl: typeof env.APP_URL === 'string' && env.APP_URL.trim().length > 0,
-      sessionSecret: typeof env.SESSION_SECRET === 'string' && env.SESSION_SECRET.length >= 32,
+      sessionSecret: hasSessionSecret,
       github: {
         clientId: typeof env.GITHUB_CLIENT_ID === 'string' && env.GITHUB_CLIENT_ID.trim().length > 0,
         clientSecret: typeof env.GITHUB_CLIENT_SECRET === 'string' && env.GITHUB_CLIENT_SECRET.trim().length > 0,
@@ -25,18 +53,6 @@ export async function onRequestGet(context: EventContext<Env, never, Record<stri
         r2: !!env.R2_BUCKET,
       },
     } as const;
-
-    // 可选鉴权：若具备 SESSION_SECRET 则尝试解析 cookie，失败不报错
-    let authenticated = false;
-    if (envOk.sessionSecret) {
-      try {
-        const secret = getSessionSecret(env);
-        const session = await verifySession(request, secret);
-        authenticated = !!session;
-      } catch {
-        authenticated = false;
-      }
-    }
 
     // 检查 D1
     let d1Ok = false;
