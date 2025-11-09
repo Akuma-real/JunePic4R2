@@ -26,7 +26,7 @@
 - **存储**: Cloudflare R2 (兼容 S3 API)
 - **数据库**: Cloudflare D1 (SQLite)
 - **图片处理**: 前端压缩（Canvas/Web Worker）。注意：Workers 不支持 Sharp。
-- **部署**: Vercel / Cloudflare Pages
+- **部署**: Cloudflare Pages
 
 ## 📋 前置要求
 
@@ -42,84 +42,7 @@
    - Node.js 18+
    - pnpm (推荐) / npm / yarn
 
-## 🚀 快速开始
-
-### 1. 克隆项目
-
-\`\`\`bash
-git clone <your-repo-url>
-cd JunePic4R2
-pnpm install
-\`\`\`
-
-### 2. 配置 Cloudflare R2
-
-```bash
-# 登录 Cloudflare
-pnpm wrangler login
-
-# 创建 R2 存储桶
-pnpm wrangler r2 bucket create junepic-bucket
-
-# 获取 R2 访问密钥
-# 访问: https://dash.cloudflare.com/ -> R2 -> 管理 R2 API 令牌
-```
-
-### 3. 配置 Cloudflare D1
-
-```bash
-# 创建 D1 数据库
-pnpm wrangler d1 create junepic_db
-
-# 复制输出的 database_id，填入 wrangler.toml
-
-# 运行数据库迁移
-pnpm wrangler d1 execute junepic_db --file=./db/migrations/001_initial_schema.sql
-```
-
-### 4. 配置环境变量
-
-复制 `.env.example` 为 `.env.local`：
-
-```bash
-cp .env.example .env.local
-```
-
-编辑 `.env.local`，填入配置：
-
-```env
-# Cloudflare R2
-R2_ACCOUNT_ID=your_account_id
-R2_ACCESS_KEY_ID=your_access_key
-R2_SECRET_ACCESS_KEY=your_secret_key
-R2_BUCKET_NAME=junepic-bucket
-R2_PUBLIC_URL=https://your-custom-domain.com  # 可选
-
-# D1 数据库
-DATABASE_ID=your_d1_database_id
-
-# NextAuth
-NEXTAUTH_URL=http://localhost:3000
-NEXTAUTH_SECRET=your_generated_secret  # 运行: openssl rand -base64 32
-
-# GitHub OAuth
-GITHUB_CLIENT_ID=your_github_client_id
-GITHUB_CLIENT_SECRET=your_github_client_secret
-
-# Google OAuth（可选）
-GOOGLE_CLIENT_ID=your_google_client_id
-GOOGLE_CLIENT_SECRET=your_google_client_secret
-```
-
-提示：Cloudflare Pages Functions 的环境变量来自 wrangler.toml 或 Cloudflare Dashboard 的 Project → Settings → Environment Variables；`.env.local` 仅用于 Next.js 构建/本地界面，不会注入到 Functions 运行时。
-
-### 5. 启动开发服务器
-
-```bash
-pnpm dev
-```
-
-访问 http://localhost:8788
+准备就绪后，请直接参照下文的「[📦 部署：Cloudflare Pages](#-部署cloudflare-pages)」完成部署与发布。
 
 ## 📝 配置说明
 
@@ -129,9 +52,9 @@ pnpm dev
 2. 点击 "New OAuth App"
 3. 填写信息：
    - Application name: `JunePic4R2`
-   - Homepage URL: `http://localhost:3000`
-   - Authorization callback URL: `http://localhost:3000/auth/github-callback`
-4. 获取 Client ID 和 Client Secret
+   - Homepage URL: `https://<app-url>`（与你的 Cloudflare Pages 站点一致）
+   - Authorization callback URL: `https://<app-url>/auth/github-callback`
+4. 获取 Client ID 和 Client Secret，用于后续部署步骤中的环境变量配置。
 
 <!-- Google OAuth 暂未实现，如需支持请在 Issue 中讨论。 -->
 
@@ -143,17 +66,7 @@ pnpm dev
 2. 添加自定义域名
 3. 更新 `.env.local` 中的 `R2_PUBLIC_URL`
 
-## 📦 部署
-
-### Vercel 部署
-
-1. 导入项目到 Vercel
-2. 配置环境变量（同上）
-3. 部署
-
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new)
-
-### Cloudflare Pages 部署（官网）
+## 📦 部署：Cloudflare Pages
 
 Cloudflare Pages 负责托管静态 `out/` 目录，并通过 Pages Functions 运行 `functions/` 中的 API。以下步骤全部在 Cloudflare 官网完成：
 
@@ -205,7 +118,7 @@ Cloudflare Pages 负责托管静态 `out/` 目录，并通过 Pages Functions �
 
 8. 上线验证（Dashboard）
    - 打开 `https://<app-url>/auth/signin` 完成 GitHub 登录（仅 `OWNER_EMAIL` 允许登录）。
-- 进入 `/dashboard`，右侧“系统状态（实时）”应显示 D1/R2/集成状态。
+   - 进入 `/dashboard`，右侧“系统状态（实时）”应显示 D1/R2/集成状态。
    - 上传一张图片，确认能在列表中显示；仪表盘应显示“从 R2 同步”按钮（OWNER 为管理员）。
    - 同步 R2：如果你的 R2 里有历史文件没有 `userId` 元数据，在单用户模式下会自动归属到当前登录用户并入库（不再报“缺少 userId metadata”）。
 
@@ -237,7 +150,7 @@ Cloudflare Pages 负责托管静态 `out/` 目录，并通过 Pages Functions �
 访问 `/api/upload` 上传图片（需先登录以携带会话 Cookie）：
 
 ```bash
-curl -X POST http://localhost:8788/api/upload \
+curl -X POST https://<app-url>/api/upload \
   -F "file=@image.jpg"
 
 说明：压缩已在前端完成（Canvas/WebP），该接口不处理 `compress`/`quality` 参数。
