@@ -8,6 +8,7 @@
 
 import { upsertUserFromGitHub } from '../../lib/db-queries';
 import { createSession, getSessionSecret } from '../../lib/auth-helpers';
+import { resolveAppUrl } from '../_url';
 
 interface GitHubUser {
   id: number;
@@ -34,7 +35,7 @@ function parseCookies(header: string | null): Record<string, string> {
 }
 
 export async function onRequestGet(context: EventContext<Env, never, Record<string, unknown>>) {
-  const { GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET, APP_URL, DB } = context.env;
+  const { GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET, DB } = context.env;
 
   // 获取 code 参数
   const url = new URL(context.request.url);
@@ -42,8 +43,7 @@ export async function onRequestGet(context: EventContext<Env, never, Record<stri
   const error = url.searchParams.get('error');
   const state = url.searchParams.get('state');
 
-  const requestOrigin = new URL(context.request.url).origin;
-  const appUrl = (APP_URL && APP_URL.trim().length > 0) ? APP_URL : requestOrigin;
+  const appUrl = resolveAppUrl(context.env, context.request);
 
   if (error) {
     return Response.redirect(

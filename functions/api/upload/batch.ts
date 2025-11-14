@@ -12,6 +12,7 @@
 import { verifySession, getSessionSecret } from '../../../lib/auth-helpers';
 import { processAndSaveImage } from '../../../lib/server-upload';
 import { resolveUploadToken } from '../../../lib/upload-tokens';
+import { resolvePublicBaseUrl } from '../../_url';
 
 const MAX_BATCH_SIZE = 20; // 最多一次上传 20 张图片
 
@@ -72,7 +73,7 @@ export async function onRequestPost(context: EventContext<Env, never, Record<str
     const results: UploadedImage[] = [];
     const errors: UploadError[] = [];
 
-    const publicUrl = context.env.R2_PUBLIC_URL || context.env.APP_URL;
+    const publicUrl = resolvePublicBaseUrl(context.env, context.request);
 
     await Promise.allSettled(
       files.map(async (file) => {

@@ -6,6 +6,8 @@
 
 /// <reference types="@cloudflare/workers-types" />
 
+import { resolveAppUrl } from '../_url';
+
 function generateState(): string {
   const bytes = new Uint8Array(16);
   crypto.getRandomValues(bytes);
@@ -18,11 +20,10 @@ function generateState(): string {
 }
 
 export async function onRequestGet(context: EventContext<Env, never, Record<string, unknown>>) {
-  const { GITHUB_CLIENT_ID, APP_URL, OWNER_EMAIL } = context.env;
+  const { GITHUB_CLIENT_ID, OWNER_EMAIL } = context.env;
 
-  // 兼容：APP_URL 缺失时，以当前请求的 origin 作为回调根（避免因配置遗漏而 500）
-  const requestOrigin = new URL(context.request.url).origin;
-  const appUrl = (APP_URL && APP_URL.trim().length > 0) ? APP_URL : requestOrigin;
+  // 统一使用 resolveAppUrl 解析 APP_URL（兼容缺失配置）
+  const appUrl = resolveAppUrl(context.env, context.request);
 
   if (!GITHUB_CLIENT_ID) {
     return Response.json(

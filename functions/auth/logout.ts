@@ -7,18 +7,20 @@
 /// <reference types="@cloudflare/workers-types" />
 
 import { deleteSession } from '../../lib/auth-helpers';
+import { resolveAppUrl } from '../_url';
 
 export async function onRequestPost(context: EventContext<Env, never, Record<string, unknown>>) {
-  const { APP_URL } = context.env;
 
   // 清除 session cookie
   const isSecure = new URL(context.request.url).protocol === 'https:';
   const clearCookie = deleteSession(isSecure);
 
+  const appUrl = resolveAppUrl(context.env, context.request);
+
   return new Response(null, {
     status: 302,
     headers: {
-      Location: `${APP_URL}/`,
+      Location: `${appUrl}/`,
       'Set-Cookie': clearCookie,
     },
   });

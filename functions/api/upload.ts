@@ -12,6 +12,7 @@
 import { verifySession, getSessionSecret } from '../../lib/auth-helpers';
 import { processAndSaveImage, ALLOWED_TYPES, MAX_FILE_SIZE } from '../../lib/server-upload';
 import { resolveUploadToken } from '../../lib/upload-tokens';
+import { resolvePublicBaseUrl } from '../_url';
 
 async function authenticateRequest(request: Request, env: Env) {
   const secret = getSessionSecret(env);
@@ -65,7 +66,7 @@ export async function onRequestPost(context: EventContext<Env, never, Record<str
     }
 
     // 5. 处理上传与入库（共用逻辑）
-    const publicUrl = context.env.R2_PUBLIC_URL || context.env.APP_URL;
+    const publicUrl = resolvePublicBaseUrl(context.env, context.request);
     const result = await processAndSaveImage(
       file,
       auth.userId,

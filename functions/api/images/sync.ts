@@ -13,6 +13,7 @@ import {
 } from '../../../lib/db-queries';
 import { listAllFromR2Bucket } from '../../../lib/r2';
 import { nanoid } from 'nanoid';
+import { resolvePublicBaseUrl } from '../../_url';
 
 export async function onRequestPost(context: EventContext<Env, never, Record<string, unknown>>) {
   try {
@@ -34,7 +35,7 @@ export async function onRequestPost(context: EventContext<Env, never, Record<str
     let skippedCount = 0;
     const errors: string[] = [];
 
-    const publicUrl = context.env.R2_PUBLIC_URL || context.env.APP_URL;
+    const publicUrl = resolvePublicBaseUrl(context.env, context.request);
 
     // 逐个检查并添加
     const ALLOWED_TYPES = new Set(['image/jpeg', 'image/png', 'image/gif', 'image/webp']);

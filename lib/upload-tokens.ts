@@ -17,6 +17,53 @@ export interface UploadTokenResponse {
   revoked: boolean;
 }
 
+// 为了避免在本地或未正确执行迁移时出现 “no such table: upload_tokens” 导致 500，
+// 这里在首次访问时自动确保表结构存在。生产环境已跑迁移时不会有任何行为变化。
+let uploadTokensSchemaEnsured = false;
+
+async function ensureUploadTokensSchema(db: D1Database) {
+  if (uploadTokensSchemaEnsured) return;
+  try {
+    // 快速探测表是否存在
+    await db.prepare('SELECT 1 FROM upload_tokens LIMIT 1').all();
+    uploadTokensSchemaEnsured = true;
+  } catch (error) {
+    if (error instanceof Error && /no such table: upload_tokens/i.test(error.message)) {
+      // 与 db/migrations/001_initial_schema.sql 保持一致
+      await db
+        .prepare(
+          `CREATE TABLE IF NOT EXISTS upload_tokens (
+             id TEXT PRIMARY KEY,
+             user_id TEXT NOT NULL,
+             name TEXT NOT NULL,
+             token_hash TEXT NOT NULL UNIQUE,
+             created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+             last_used_at INTEGER,
+             revoked INTEGER NOT NULL DEFAULT 0,
+             FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+           )`
+        )
+        .run();
+
+      await db
+        .prepare(
+          'CREATE INDEX IF NOT EXISTS idx_upload_tokens_user ON upload_tokens(user_id)'
+        )
+        .run();
+
+      await db
+        .prepare(
+          'CREATE INDEX IF NOT EXISTS idx_upload_tokens_token_hash ON upload_tokens(token_hash)'
+        )
+        .run();
+
+      uploadTokensSchemaEnsured = true;
+      return;
+    }
+    throw error;
+  }
+}
+
 async function hashToken(token: string): Promise<string> {
   const encoder = new TextEncoder();
   const data = encoder.encode(token);
@@ -26,6 +73,7 @@ async function hashToken(token: string): Promise<string> {
 }
 
 export async function listUploadTokens(db: D1Database, userId: string): Promise<UploadTokenResponse[]> {
+  await ensureUploadTokensSchema(db);
   const result = await db
     .prepare(
       `SELECT id, name, created_at, last_used_at, revoked
@@ -52,6 +100,7 @@ export async function createUploadToken(
   userId: string,
   name: string
 ): Promise<{ token: string; record: UploadTokenResponse }> {
+  await ensureUploadTokensSchema(db);
   const id = crypto.randomUUID();
   const token = nanoid(48);
   const tokenHash = await hashToken(token);
@@ -76,6 +125,7 @@ export async function createUploadToken(
 }
 
 export async function revokeUploadToken(db: D1Database, userId: string, tokenId: string) {
+  await ensureUploadTokensSchema(db);
   await db
     .prepare(
       `UPDATE upload_tokens

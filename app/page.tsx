@@ -29,14 +29,14 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
       {/* 导航栏 */}
-      <header className="border-b border-gray-200 dark:border-gray-700 bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm">
+      <header className="border-b border-slate-200 dark:border-slate-800 bg-white/70 dark:bg-slate-900/70 backdrop-blur-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-3">
-              <ImageIcon className="w-8 h-8 text-emerald-600" />
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+              <ImageIcon className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+              <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
                 JunePic4R2
               </h1>
             </div>
@@ -52,14 +52,14 @@ export default function Home() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
         {/* Hero 区域 */}
         <div className="text-center mb-20">
-          <h2 className="text-5xl font-bold text-gray-900 dark:text-white mb-6">
+          <h2 className="text-5xl font-bold text-slate-900 dark:text-white mb-6">
             基于 Cloudflare R2 的
             <br />
-            <span className="bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">
+            <span className="bg-gradient-to-r from-blue-600 via-indigo-600 to-sky-500 bg-clip-text text-transparent">
               现代化图床管理系统
             </span>
           </h2>
-          <p className="text-xl text-gray-600 dark:text-gray-300 mb-8 max-w-2xl mx-auto">
+          <p className="text-xl text-slate-600 dark:text-slate-300 mb-8 max-w-2xl mx-auto">
             快速、安全、可靠的图片存储解决方案。支持批量上传、智能压缩、R2 同步等功能。
           </p>
           <div className="flex gap-4 justify-center">
@@ -81,39 +81,39 @@ export default function Home() {
 
         {/* 功能特性 */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-20">
-          <Card className="p-6 hover:shadow-lg transition-shadow">
-            <div className="w-12 h-12 bg-emerald-100 dark:bg-emerald-900 rounded-lg flex items-center justify-center mb-4">
-              <Upload className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
+          <Card className="p-6 hover:shadow-lg transition-shadow bg-white/80 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800">
+            <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/60 rounded-lg flex items-center justify-center mb-4">
+              <Upload className="w-6 h-6 text-blue-600 dark:text-blue-400" />
             </div>
             <h3 className="text-xl font-semibold mb-2">便捷上传</h3>
-            <p className="text-gray-600 dark:text-gray-400">
+            <p className="text-slate-600 dark:text-slate-400">
               支持拖拽、粘贴、批量上传。Cloudflare Workers 原生支持。
             </p>
           </Card>
 
-          <Card className="p-6 hover:shadow-lg transition-shadow">
-            <div className="w-12 h-12 bg-cyan-100 dark:bg-cyan-900 rounded-lg flex items-center justify-center mb-4">
-              <Shield className="w-6 h-6 text-cyan-600 dark:text-cyan-400" />
+          <Card className="p-6 hover:shadow-lg transition-shadow bg-white/80 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800">
+            <div className="w-12 h-12 bg-sky-100 dark:bg-sky-900/60 rounded-lg flex items-center justify-center mb-4">
+              <Shield className="w-6 h-6 text-sky-600 dark:text-sky-400" />
             </div>
             <h3 className="text-xl font-semibold mb-2">安全可靠</h3>
-            <p className="text-gray-600 dark:text-gray-400">
+            <p className="text-slate-600 dark:text-slate-400">
               基于 Cloudflare R2，全球 CDN 加速，支持防盗链和 OAuth 认证。
             </p>
           </Card>
 
-          <Card className="p-6 hover:shadow-lg transition-shadow">
-            <div className="w-12 h-12 bg-green-100 dark:bg-green-900 rounded-lg flex items-center justify-center mb-4">
-              <Zap className="w-6 h-6 text-green-600 dark:text-green-400" />
+          <Card className="p-6 hover:shadow-lg transition-shadow bg-white/80 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800">
+            <div className="w-12 h-12 bg-indigo-100 dark:bg-indigo-900/60 rounded-lg flex items-center justify-center mb-4">
+              <Zap className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
             </div>
             <h3 className="text-xl font-semibold mb-2">强大功能</h3>
-            <p className="text-gray-600 dark:text-gray-400">
+            <p className="text-slate-600 dark:text-slate-400">
               R2 同步、链接生成、API 接口，满足各种使用场景。
             </p>
           </Card>
         </div>
 
         {/* 技术栈 */}
-        <Card className="p-8 bg-gradient-to-r from-emerald-600 to-teal-600 text-white">
+        <Card className="p-8 bg-gradient-to-r from-blue-600 via-indigo-600 to-sky-500 text-white">
           <div className="text-center">
             <h3 className="text-2xl font-bold mb-4">现代化技术栈</h3>
             <div className="flex flex-wrap justify-center gap-4 text-sm">
