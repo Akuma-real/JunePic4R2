@@ -105,7 +105,7 @@ export default function DashboardPage() {
     };
 
     fetchHealth();
-    const timer = setInterval(fetchHealth, 30000);
+    const timer = setInterval(fetchHealth, 5000);
 
     return () => {
       cancelled = true;
