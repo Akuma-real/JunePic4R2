@@ -147,10 +147,27 @@ export default function ImageGallery({
           stats: { total: number; added: number; skipped: number; errors: number };
           errors?: string[];
         };
-        const errorDetails = data.errors && data.errors.length > 0 ? `\n${data.errors.slice(0,5).join('\n')}` : '';
-        toast.success('同步完成', {
-          description: `总计: ${data.stats.total}，新增: ${data.stats.added}，跳过: ${data.stats.skipped}，错误: ${data.stats.errors}${errorDetails}`,
-        });
+        const { total, added, skipped, errors: errorCount } = data.stats;
+
+        const summary = `扫描对象：${total} · 新增：${added} · 已存在：${skipped} · 错误：${errorCount}`;
+
+        const hasErrors = errorCount > 0 && data.errors && data.errors.length > 0;
+        const previewCount = hasErrors ? Math.min(3, data.errors!.length) : 0;
+        const preview =
+          hasErrors && previewCount > 0
+            ? `\n\n前 ${previewCount} 条错误：\n- ${data.errors!.slice(0, previewCount).join('\n- ')}`
+            : '';
+
+        if (hasErrors) {
+          toast.error('同步完成（存在错误）', {
+            description: `${summary}${preview}`,
+          });
+        } else {
+          toast.success('同步完成', {
+            description: summary,
+          });
+        }
+
         // 重新加载图片列表
         fetchImages();
       } else {

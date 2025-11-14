@@ -2,7 +2,13 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+} from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
@@ -118,15 +124,16 @@ export default function UploadTokenManager() {
   };
 
   return (
-    <Card className="p-4 sm:p-6 space-y-4">
-      <div className="space-y-1">
-        <h3 className="text-lg font-semibold">上传 Token</h3>
-        <p className="text-sm text-gray-500">
+    <Card>
+      <CardHeader className="space-y-1">
+        <CardTitle className="text-lg font-semibold">上传 Token</CardTitle>
+        <CardDescription className="text-sm text-gray-500">
           生成 Token 后，可在 PicList / PicGo 等客户端中作为 Bearer Token 调用 /api/upload 接口。
-        </p>
-      </div>
+        </CardDescription>
+      </CardHeader>
 
-      <div className="space-y-3">
+      <CardContent className="space-y-4">
+        <div className="space-y-3">
         <label className="text-sm font-medium">Token 名称</label>
         <div className="flex flex-col gap-3 sm:flex-row">
           <Input
@@ -145,9 +152,9 @@ export default function UploadTokenManager() {
             <Textarea readOnly value={newTokenValue} className="font-mono" rows={3} />
           </div>
         )}
-      </div>
+        </div>
 
-      <div className="space-y-3">
+        <div className="space-y-3">
         <h4 className="text-sm font-semibold">已生成的 Token</h4>
         {loading ? (
           <p className="text-sm text-gray-500">加载中…</p>
@@ -183,9 +190,9 @@ export default function UploadTokenManager() {
             ))}
           </div>
         )}
-      </div>
+        </div>
 
-      <div className="space-y-3">
+        <div className="space-y-3">
         <h4 className="text-sm font-semibold">PicList 参数</h4>
         <div className="space-y-2">
           {configItems.map((item) => (
@@ -210,7 +217,8 @@ export default function UploadTokenManager() {
             </div>
           ))}
         </div>
-      </div>
+        </div>
+      </CardContent>
     </Card>
   );
 }

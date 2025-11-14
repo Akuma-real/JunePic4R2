@@ -29,8 +29,8 @@ export async function onRequestGet(context: EventContext<Env, never, Record<stri
       return Response.json(
         {
           success: false,
-          d1: { ok: false, error: '未授权' },
-          r2: { ok: false, error: '未授权' },
+          d1: { ok: false, error: '未授权', latencyMs: undefined },
+          r2: { ok: false, error: '未授权', latencyMs: undefined },
           integration: { ok: false },
           env: null,
           auth: { authenticated },
@@ -57,8 +57,11 @@ export async function onRequestGet(context: EventContext<Env, never, Record<stri
     // 检查 D1
     let d1Ok = false;
     let d1Error: string | undefined;
+    let d1LatencyMs: number | undefined;
     try {
+      const start = Date.now();
       const row = await env.DB.prepare('SELECT 1 AS ok').first<{ ok: number }>();
+      d1LatencyMs = Date.now() - start;
       d1Ok = !!row && Number(row.ok) === 1;
     } catch (err) {
       d1Ok = false;
@@ -68,8 +71,11 @@ export async function onRequestGet(context: EventContext<Env, never, Record<stri
     // 检查 R2（列举 1 个对象，失败即视为不可用）
     let r2Ok = false;
     let r2Error: string | undefined;
+    let r2LatencyMs: number | undefined;
     try {
+      const start = Date.now();
       await env.R2_BUCKET.list({ limit: 1 });
+      r2LatencyMs = Date.now() - start;
       r2Ok = true;
     } catch (err) {
       r2Ok = false;
@@ -80,8 +86,8 @@ export async function onRequestGet(context: EventContext<Env, never, Record<stri
 
     return Response.json({
       success: integrationOk,
-      d1: { ok: d1Ok, error: d1Error },
-      r2: { ok: r2Ok, error: r2Error },
+      d1: { ok: d1Ok, error: d1Error, latencyMs: d1LatencyMs },
+      r2: { ok: r2Ok, error: r2Error, latencyMs: r2LatencyMs },
       integration: { ok: integrationOk },
       env: envOk,
       auth: { authenticated },

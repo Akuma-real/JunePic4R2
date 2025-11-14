@@ -2,9 +2,15 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
+import NextImage from 'next/image';
 import { Upload, Image as ImageIcon, X, Check, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardContent,
+} from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
@@ -48,6 +54,7 @@ export default function ImageUploader({
   const [currentPhase, setCurrentPhase] = useState<'idle' | 'compressing' | 'uploading'>('idle');
   const [usedCompression, setUsedCompression] = useState(false);
   const [skippedCompressionFiles, setSkippedCompressionFiles] = useState<string[]>([]);
+  const [previewUrls, setPreviewUrls] = useState<string[]>([]);
   const form = useForm<{ compress: boolean; quality: number }>({
     defaultValues: { compress, quality },
   });
@@ -205,6 +212,21 @@ export default function ImageUploader({
     }
   };
 
+  // 为待上传文件生成本地预览 URL
+  useEffect(() => {
+    if (files.length === 0) {
+      setPreviewUrls([]);
+      return;
+    }
+
+    const urls = files.map((file) => URL.createObjectURL(file));
+    setPreviewUrls(urls);
+
+    return () => {
+      urls.forEach((url) => URL.revokeObjectURL(url));
+    };
+  }, [files]);
+
   // 粘贴上传
   useEffect(() => {
     const handlePaste = (e: ClipboardEvent) => {
@@ -234,70 +256,76 @@ export default function ImageUploader({
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
+  const totalSize = files.reduce((sum, file) => sum + file.size, 0);
+
   return (
     <div className="space-y-6">
       {/* 上传选项 */}
-      <Card className="p-6">
-        <h3 className="text-lg font-semibold mb-4">上传设置</h3>
-        <Form {...form}>
-          <form className="space-y-4" onSubmit={(e) => e.preventDefault()}>
-            <FormField
-              control={form.control}
-              name="compress"
-              render={() => (
-                <FormItem className="flex items-center justify-between gap-4">
-                  <FormLabel className="text-sm">WebP 压缩</FormLabel>
-                  <FormControl>
-                    <Switch
-                      checked={compress}
-                      onCheckedChange={(next) => {
-                        const v = !!next;
-                        setCompress(v);
-                        form.setValue('compress', v);
-                        if (!v) setSkippedCompressionFiles([]);
-                      }}
-                    />
-                  </FormControl>
-                </FormItem>
-              )}
-            />
-
-            {compress && (
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg font-semibold">上传设置</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Form {...form}>
+            <form className="space-y-4" onSubmit={(e) => e.preventDefault()}>
               <FormField
                 control={form.control}
-                name="quality"
+                name="compress"
                 render={() => (
-                  <FormItem>
-                    <div className="flex items-center justify-between">
-                      <FormLabel className="text-sm">压缩质量</FormLabel>
-                      <span className="text-sm text-gray-500">{quality}%</span>
-                    </div>
+                  <FormItem className="flex items-center justify-between gap-4">
+                    <FormLabel className="text-sm">WebP 压缩</FormLabel>
                     <FormControl>
-                      <Slider
-                        value={[quality]}
-                        onValueChange={(value) => {
-                          const v = value[0];
-                          setQuality(v);
-                          form.setValue('quality', v);
+                      <Switch
+                        checked={compress}
+                        onCheckedChange={(next) => {
+                          const v = !!next;
+                          setCompress(v);
+                          form.setValue('compress', v);
+                          if (!v) setSkippedCompressionFiles([]);
                         }}
-                        min={10}
-                        max={100}
-                        step={1}
-                        className="w-full"
                       />
                     </FormControl>
-                    <FormDescription className="text-xs text-gray-500">
-                      92% 可获得最佳质量与文件大小的平衡
-                    </FormDescription>
-                    <p className="text-xs text-amber-600 dark:text-amber-300">
-                      ⚠️ 启用压缩会将图片转换为静态 WebP，检测到动图会自动跳过并上传原文件。
-                    </p>
                   </FormItem>
                 )}
               />
-            )}
-          </form>
-        </Form>
+
+              {compress && (
+                <FormField
+                  control={form.control}
+                  name="quality"
+                  render={() => (
+                    <FormItem>
+                      <div className="flex items-center justify-between">
+                        <FormLabel className="text-sm">压缩质量</FormLabel>
+                        <span className="text-sm text-gray-500">{quality}%</span>
+                      </div>
+                      <FormControl>
+                        <Slider
+                          value={[quality]}
+                          onValueChange={(value) => {
+                            const v = value[0];
+                            setQuality(v);
+                            form.setValue('quality', v);
+                          }}
+                          min={10}
+                          max={100}
+                          step={1}
+                          className="w-full"
+                        />
+                      </FormControl>
+                      <FormDescription className="text-xs text-gray-500">
+                        92% 可获得最佳质量与文件大小的平衡
+                      </FormDescription>
+                      <p className="text-xs text-amber-600 dark:text-amber-300">
+                        ⚠️ 启用压缩会将图片转换为静态 WebP，检测到动图会自动跳过并上传原文件。
+                      </p>
+                    </FormItem>
+                  )}
+                />
+              )}
+            </form>
+          </Form>
+        </CardContent>
       </Card>
 
       {/* 拖拽上传区域 */}
@@ -334,11 +362,16 @@ export default function ImageUploader({
 
       {/* 文件列表 */}
       {files.length > 0 && (
-        <Card className="p-4">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold">
-              待上传文件 ({files.length})
-            </h3>
+        <Card>
+          <CardHeader className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-lg font-semibold">
+                待上传文件 ({files.length})
+              </CardTitle>
+              <p className="text-xs text-gray-500 mt-1">
+                总大小：{formatFileSize(totalSize)}
+              </p>
+            </div>
             <Button
               variant="outline"
               size="sm"
@@ -347,34 +380,49 @@ export default function ImageUploader({
             >
               清空列表
             </Button>
-          </div>
-
-          <div className="space-y-2 max-h-60 overflow-y-auto">
-            {files.map((file, index) => (
-              <div
-                key={index}
-                className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg"
-              >
-                <div className="flex items-center gap-3 flex-1 min-w-0">
-                  <ImageIcon className="w-8 h-8 text-gray-400 flex-shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{file.name}</p>
-                    <p className="text-xs text-gray-500">
-                      {formatFileSize(file.size)}
-                    </p>
-                  </div>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => removeFile(index)}
-                  disabled={uploading}
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2 max-h-60 overflow-y-auto">
+              {files.map((file, index) => (
+                <div
+                  key={index}
+                  className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg"
                 >
-                  <X className="w-4 h-4" />
-                </Button>
-              </div>
-            ))}
-          </div>
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    {previewUrls[index] ? (
+                      <div className="relative h-12 w-12 flex-shrink-0 overflow-hidden rounded-md border border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-900">
+                        <NextImage
+                          src={previewUrls[index]}
+                          alt={file.name}
+                          fill
+                          className="object-cover"
+                          sizes="48px"
+                          unoptimized
+                        />
+                      </div>
+                    ) : (
+                      <div className="h-12 w-12 flex items-center justify-center rounded-md bg-gray-100 dark:bg-gray-900 flex-shrink-0">
+                        <ImageIcon className="w-6 h-6 text-gray-400" />
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{file.name}</p>
+                      <p className="text-xs text-gray-500">
+                        {formatFileSize(file.size)}
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => removeFile(index)}
+                    disabled={uploading}
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
 
           {skippedCompressionFiles.length > 0 && (
             <div className="mt-4 rounded-lg border border-yellow-200 bg-yellow-50 p-3 text-xs text-yellow-800 dark:border-yellow-900 dark:bg-yellow-950/40 dark:text-yellow-200">
@@ -459,21 +507,24 @@ export default function ImageUploader({
               {uploading ? '上传中...' : `上传 ${files.length} 个文件`}
             </Button>
           </div>
+          </CardContent>
         </Card>
       )}
 
       {/* 上传成功结果 */}
       {uploadResults.length > 0 && (
-        <Card className="p-4 bg-green-50 dark:bg-green-950 border-green-200">
-          <div className="flex items-center gap-2 mb-2">
-            <Check className="w-5 h-5 text-green-600" />
-            <h3 className="text-lg font-semibold text-green-800 dark:text-green-200">
-              上传成功！
-            </h3>
-          </div>
-          <p className="text-sm text-green-700 dark:text-green-300">
-            成功上传 {uploadResults.length} 个文件
-          </p>
+        <Card className="bg-green-50 dark:bg-green-950 border-green-200">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Check className="w-5 h-5 text-green-600" />
+              <p className="text-lg font-semibold text-green-800 dark:text-green-200">
+                上传成功！
+              </p>
+            </div>
+            <p className="text-sm text-green-700 dark:text-green-300">
+              成功上传 {uploadResults.length} 个文件
+            </p>
+          </CardContent>
         </Card>
       )}
     </div>

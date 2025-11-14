@@ -8,7 +8,14 @@ import ImageUploader from '@/components/image-uploader';
 import ImageGallery from '@/components/image-gallery';
 import UploadTokenManager from '@/components/upload-token-manager';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardContent,
+} from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
 import { LogOut, Image as ImageIcon, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -18,12 +25,14 @@ interface Stats {
   totalSizeMB: string;
 }
 
-type MaybeBool = boolean | null;
-
 interface HealthState {
-  d1: MaybeBool;
-  r2: MaybeBool;
-  integration: MaybeBool;
+  d1: boolean | null;
+  r2: boolean | null;
+  integration: boolean | null;
+  latencies?: {
+    d1?: number;
+    r2?: number;
+  };
   errors?: {
     d1?: string;
     r2?: string;
@@ -65,30 +74,44 @@ export default function DashboardPage() {
 
   // 获取健康状态
   useEffect(() => {
+    let cancelled = false;
+
     const fetchHealth = async () => {
       try {
         const res = await fetch('/api/health');
         if (!res.ok) throw new Error(`status ${res.status}`);
         const data = await res.json() as {
-          d1: { ok: boolean; error?: string };
-          r2: { ok: boolean; error?: string };
-          integration: { ok: boolean };
+          d1: { ok: boolean; error?: string; latencyMs?: number };
+          r2: { ok: boolean; error?: string; latencyMs?: number };
+          integration: { ok: boolean; checkedAt?: number };
         };
+        if (cancelled) return;
         setHealth({
           d1: data.d1.ok,
           r2: data.r2.ok,
           integration: data.integration.ok,
+          latencies: {
+            d1: data.d1.latencyMs,
+            r2: data.r2.latencyMs,
+          },
           errors: { d1: data.d1.error, r2: data.r2.error },
         });
       } catch (e) {
         console.error('Failed to fetch health:', e);
-        setHealth({ d1: null, r2: null, integration: null });
+        if (!cancelled) {
+          setHealth({ d1: null, r2: null, integration: null });
+        }
       }
     };
-    fetchHealth();
-  }, [refreshKey]);
 
-  const mark = (v: MaybeBool) => (v === null ? '…' : v ? '✅' : '❌');
+    fetchHealth();
+    const timer = setInterval(fetchHealth, 30000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [refreshKey]);
 
   if (loading) {
     return (
@@ -205,24 +228,26 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
           {/* 左侧：上传区域 */}
           <div className="lg:col-span-2 space-y-6">
-            <Card className="p-4 sm:p-6">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
-                <h2 className="text-xl font-semibold">上传图片</h2>
-              </div>
-              <ImageUploader
-                onUploadComplete={handleUploadComplete}
-                onUploadError={(error) => {
-                  console.error('上传错误:', error);
-                  toast.error('上传失败', { description: String(error) });
-                }}
-                maxFiles={20}
-              />
+            <Card>
+              <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <CardTitle className="text-xl font-semibold">上传图片</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ImageUploader
+                  onUploadComplete={handleUploadComplete}
+                  onUploadError={(error) => {
+                    console.error('上传错误:', error);
+                    toast.error('上传失败', { description: String(error) });
+                  }}
+                  maxFiles={20}
+                />
+              </CardContent>
             </Card>
 
             {/* 图片列表 */}
-            <Card className="p-4 sm:p-6">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
-                <h2 className="text-xl font-semibold">我的图片</h2>
+            <Card>
+              <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <CardTitle className="text-xl font-semibold">我的图片</CardTitle>
                 <Button
                   variant="outline"
                   size="sm"
@@ -231,59 +256,142 @@ export default function DashboardPage() {
                   <RefreshCw className="w-4 h-4 mr-2" />
                   刷新
                 </Button>
-              </div>
-              <ImageGallery
-                key={refreshKey}
-                onImageDeleted={handleImageDeleted}
-                canSync={Boolean(user.isAdmin)}
-              />
+              </CardHeader>
+              <CardContent>
+                <ImageGallery
+                  key={refreshKey}
+                  onImageDeleted={handleImageDeleted}
+                  canSync={Boolean(user.isAdmin)}
+                />
+              </CardContent>
             </Card>
           </div>
 
           {/* 右侧：统计和快速操作 */}
           <div className="space-y-6">
-            <Card className="p-4 sm:p-6">
-              <h3 className="text-lg font-semibold mb-4">统计信息</h3>
-              <div className="space-y-4">
-                <div>
-                  <p className="text-sm text-gray-500">总图片数</p>
-                  <p className="text-2xl font-bold">{stats.imageCount}</p>
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg font-semibold">统计信息</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div>
+                    <p className="text-sm text-gray-500">总图片数</p>
+                    <p className="text-2xl font-bold">{stats.imageCount}</p>
+                  </div>
+                  <Separator />
+                  <div>
+                    <p className="text-sm text-gray-500">已使用空间</p>
+                    <p className="text-2xl font-bold">{stats.totalSizeMB} MB</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-sm text-gray-500">已使用空间</p>
-                  <p className="text-2xl font-bold">{stats.totalSizeMB} MB</p>
-                </div>
-              </div>
+              </CardContent>
             </Card>
 
-            <Card className="p-4 sm:p-6 bg-blue-50 dark:bg-blue-950 border-blue-200">
-              <h3 className="text-lg font-semibold mb-2 text-blue-900 dark:text-blue-100">
-                使用提示
-              </h3>
-              <ul className="text-sm text-blue-800 dark:text-blue-200 space-y-1">
-                <li>• 支持拖拽上传多个文件</li>
-                <li>• 可以直接粘贴（Ctrl+V）图片</li>
-                <li>• 建议启用 WebP 压缩节省空间</li>
-                <li>• 质量设置 92% 效果最佳</li>
-                <li>• 点击图片可以复制链接</li>
-              </ul>
+            <Card className="bg-blue-50 dark:bg-blue-950 border-blue-200">
+              <CardHeader>
+                <CardTitle className="text-lg font-semibold text-blue-900 dark:text-blue-100">
+                  使用提示
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ul className="text-sm text-blue-800 dark:text-blue-200 space-y-1">
+                  <li>• 支持拖拽上传多个文件</li>
+                  <li>• 可以直接粘贴（Ctrl+V）图片</li>
+                  <li>• 建议启用 WebP 压缩节省空间</li>
+                  <li>• 质量设置 92% 效果最佳</li>
+                  <li>• 点击图片可以复制链接</li>
+                </ul>
+              </CardContent>
             </Card>
 
-            <Card className="p-4 sm:p-6 bg-green-50 dark:bg-green-950 border-green-200">
-              <h3 className="text-lg font-semibold mb-2 text-green-900 dark:text-green-100">
-                系统状态（实时）
-              </h3>
-              <div className="text-sm text-green-800 dark:text-green-200 space-y-1">
-                <p>{mark(health.d1)} Cloudflare D1（SQLite）</p>
-                <p>{mark(health.r2)} Cloudflare R2 存储</p>
-                <p>{mark(health.integration)} 集成（API ↔ D1 ↔ R2）</p>
-                {(health.errors?.d1 || health.errors?.r2) && (
-                  <p className="text-xs text-red-700 dark:text-red-300 mt-2">
-                    {health.errors?.d1 && `D1: ${health.errors.d1} `}
-                    {health.errors?.r2 && `R2: ${health.errors.r2}`}
-                  </p>
-                )}
-              </div>
+            <Card className="bg-green-50 dark:bg-green-950 border-green-200">
+              <CardHeader>
+                <CardTitle className="text-lg font-semibold text-green-900 dark:text-green-100">
+                  系统状态
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-sm text-green-800 dark:text-green-200 space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span>Cloudflare D1（SQLite）</span>
+                    <Badge
+                      variant={
+                        health.d1 === null
+                          ? 'outline'
+                          : health.d1
+                            ? 'default'
+                            : 'destructive'
+                      }
+                      className="inline-flex w-28 items-center justify-center gap-1"
+                    >
+                      <span>{health.d1 === null ? '未知' : health.d1 ? '正常' : '异常'}</span>
+                      {typeof health.latencies?.d1 === 'number' && (
+                        <span className="text-[10px] opacity-80">
+                          · {health.latencies.d1} ms
+                        </span>
+                      )}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span>Cloudflare R2 存储</span>
+                    <Badge
+                      variant={
+                        health.r2 === null
+                          ? 'outline'
+                          : health.r2
+                            ? 'default'
+                            : 'destructive'
+                      }
+                      className="inline-flex w-28 items-center justify-center gap-1"
+                    >
+                      <span>{health.r2 === null ? '未知' : health.r2 ? '正常' : '异常'}</span>
+                      {typeof health.latencies?.r2 === 'number' && (
+                        <span className="text-[10px] opacity-80">
+                          · {health.latencies.r2} ms
+                        </span>
+                      )}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span>心跳检测</span>
+                    <Badge
+                      variant={
+                        health.integration === null
+                          ? 'outline'
+                          : health.integration
+                            ? 'default'
+                            : 'destructive'
+                      }
+                      className="inline-flex w-28 items-center justify-center gap-1"
+                    >
+                      <span
+                        className={[
+                          'inline-flex h-2.5 w-2.5 rounded-full',
+                          health.integration === null
+                            ? 'bg-gray-400'
+                            : health.integration
+                              ? 'bg-emerald-500 animate-pulse'
+                              : 'bg-red-500',
+                        ].join(' ')}
+                      />
+                      <span className="text-xs">
+                        {health.integration === null
+                          ? '心跳未知'
+                          : health.integration
+                            ? '心跳正常'
+                            : '心跳异常'}
+                      </span>
+                    </Badge>
+                  </div>
+                  {(health.errors?.d1 || health.errors?.r2) && (
+                    <p className="text-xs text-red-700 dark:text-red-300 mt-2">
+                      {health.errors?.d1 && `D1: ${health.errors.d1} `}
+                      {health.errors?.r2 && `R2: ${health.errors.r2}`}
+                    </p>
+                  )}
+                </div>
+              </CardContent>
             </Card>
 
             <UploadTokenManager />
