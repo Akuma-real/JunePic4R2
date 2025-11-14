@@ -10,8 +10,9 @@ import {
   CardTitle,
   CardContent,
 } from '@/components/ui/card';
-import { Image as ImageIcon, Upload, Shield, Zap, Loader2 } from 'lucide-react';
+import { Upload, Shield, Zap, Loader2 } from 'lucide-react';
 import Link from 'next/link';
+import Image from 'next/image';
 
 export default function Home() {
   const { user, loading } = useAuth();
@@ -40,7 +41,14 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-3">
-              <ImageIcon className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+              <Image
+                src="/favicon.svg"
+                alt="JunePic4R2"
+                width={32}
+                height={32}
+                className="w-8 h-8"
+                priority
+              />
               <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
                 JunePic4R2
               </h1>

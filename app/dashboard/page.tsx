@@ -16,7 +16,7 @@ import {
 } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { LogOut, Image as ImageIcon, RefreshCw } from 'lucide-react';
+import { LogOut, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -181,7 +181,14 @@ export default function DashboardPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between py-4 sm:py-0">
             <div className="flex items-center gap-3">
-              <ImageIcon className="w-8 h-8 text-blue-600" />
+              <Image
+                src="/favicon.svg"
+                alt="JunePic4R2"
+                width={32}
+                height={32}
+                className="w-8 h-8"
+                priority
+              />
               <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
                 JunePic4R2
               </h1>

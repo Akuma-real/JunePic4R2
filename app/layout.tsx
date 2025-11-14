@@ -6,6 +6,7 @@ import Providers from "./providers";
 export const metadata: Metadata = {
   title: "JunePic4R2 - Cloudflare R2 图床管理系统",
   description: "基于 Cloudflare R2 和 D1 的现代化图床管理系统",
+  icons: "/favicon.svg",
 };
 
 export default function RootLayout({
