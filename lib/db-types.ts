@@ -4,8 +4,9 @@ export interface User {
   email: string;
   name: string | null;
   avatar: string | null;
-  provider: 'github';
+  provider: 'github' | 'password';
   provider_id: string;
+  password_hash: string | null;
   created_at: number;
   updated_at: number;
 }

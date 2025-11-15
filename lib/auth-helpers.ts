@@ -7,11 +7,62 @@
 
 const SESSION_COOKIE_NAME = 'junepic_session';
 const SESSION_MAX_AGE = 30 * 24 * 60 * 60; // 30 days in seconds
+const FALSE_BOOLEAN_VALUE = /^(false|0|no)$/i;
+
+let cachedSecureCookies: boolean | null = null;
 
 interface SessionData {
   userId: string;
   expiresAt: number;
   isAdmin?: boolean;
+}
+
+/**
+ * 获取 PBKDF2 盐值（向后兼容）
+ * 新版本使用固定空字符串，为兼容性保留此函数
+ */
+function getPBKDF2Salt(
+  env?: Partial<Env> | typeof process.env
+): string {
+  // 检查是否有旧的 SESSION_SALT（向后兼容）
+  const candidate =
+    env?.SESSION_SALT ??
+    (typeof process !== 'undefined' ? process.env?.SESSION_SALT : undefined);
+
+  if (typeof candidate === 'string' && candidate.trim().length > 0) {
+    return candidate.trim();
+  }
+
+  // 新版本使用固定空字符串
+  return '';
+}
+
+function parseSecureCookiesFlag(value?: string | null): boolean | null {
+  if (typeof value !== 'string' || value.trim() === '') {
+    return null;
+  }
+  return !FALSE_BOOLEAN_VALUE.test(value.trim());
+}
+
+function ensureSecureCookiesPreference(
+  env?: Partial<Env> | typeof process.env
+): boolean {
+  const raw =
+    env?.SECURE_COOKIES ??
+    (typeof process !== 'undefined' ? process.env?.SECURE_COOKIES : undefined);
+
+  const parsed = parseSecureCookiesFlag(raw ?? null);
+  if (parsed !== null) {
+    cachedSecureCookies = parsed;
+    return parsed;
+  }
+
+  if (typeof cachedSecureCookies === 'boolean') {
+    return cachedSecureCookies;
+  }
+
+  cachedSecureCookies = true;
+  return cachedSecureCookies;
 }
 
 // ============================================================================
@@ -21,8 +72,12 @@ interface SessionData {
 /**
  * 从密钥生成 CryptoKey
  */
-async function getEncryptionKey(secret: string): Promise<CryptoKey> {
+async function getEncryptionKey(
+  secret: string,
+  env?: Partial<Env> | typeof process.env
+): Promise<CryptoKey> {
   const encoder = new TextEncoder();
+  const salt = getPBKDF2Salt(env);
   const keyMaterial = await crypto.subtle.importKey(
     'raw',
     encoder.encode(secret),
@@ -34,7 +89,7 @@ async function getEncryptionKey(secret: string): Promise<CryptoKey> {
   return await crypto.subtle.deriveKey(
     {
       name: 'PBKDF2',
-      salt: encoder.encode('junepic-salt'), // 固定 salt（生产环境应该用配置）
+      salt: encoder.encode(salt),
       iterations: 100000,
       hash: 'SHA-256',
     },
@@ -50,9 +105,10 @@ async function getEncryptionKey(secret: string): Promise<CryptoKey> {
  */
 async function encryptSession(
   data: SessionData,
-  secret: string
+  secret: string,
+  env?: Partial<Env> | typeof process.env
 ): Promise<string> {
-  const key = await getEncryptionKey(secret);
+  const key = await getEncryptionKey(secret, env);
   const encoder = new TextEncoder();
   const iv = crypto.getRandomValues(new Uint8Array(12));
 
@@ -78,10 +134,11 @@ async function encryptSession(
  */
 async function decryptSession(
   encryptedData: string,
-  secret: string
+  secret: string,
+  env?: Partial<Env> | typeof process.env
 ): Promise<SessionData | null> {
   try {
-    const key = await getEncryptionKey(secret);
+    const key = await getEncryptionKey(secret, env);
     const combined = Uint8Array.from(atob(encryptedData), (c) =>
       c.charCodeAt(0)
     );
@@ -124,18 +181,40 @@ async function decryptSession(
 export async function createSession(
   userId: string,
   secret: string,
-  options?: {
+  optionsOrEnv?: {
+    isSecure?: boolean;
+    isAdmin?: boolean;
+  } | (Partial<Env> | typeof process.env),
+  maybeOptions?: {
     isSecure?: boolean;
     isAdmin?: boolean;
   }
 ): Promise<string> {
+  // 处理参数兼容性：如果第二个参数是对象且包含 isAdmin/isSecure，则视为 options
+  let env: Partial<Env> | typeof process.env | undefined;
+  let options: { isSecure?: boolean; isAdmin?: boolean } | undefined;
+
+  if (optionsOrEnv && typeof optionsOrEnv === 'object') {
+    // 检查是否是 options 对象
+    if ('isAdmin' in optionsOrEnv || 'isSecure' in optionsOrEnv) {
+      options = optionsOrEnv as { isSecure?: boolean; isAdmin?: boolean };
+    } else {
+      // 否则视为 env
+      env = optionsOrEnv as Partial<Env> | typeof process.env;
+    }
+  }
+
+  if (maybeOptions) {
+    options = maybeOptions;
+  }
+
   const sessionData: SessionData = {
     userId,
     expiresAt: Date.now() + SESSION_MAX_AGE * 1000,
     isAdmin: options?.isAdmin ?? false,
   };
 
-  const encrypted = await encryptSession(sessionData, secret);
+  const encrypted = await encryptSession(sessionData, secret, env);
 
   const cookie = [
     `${SESSION_COOKIE_NAME}=${encrypted}`,
@@ -145,7 +224,8 @@ export async function createSession(
     'SameSite=Lax',
   ];
 
-  const isSecure = options?.isSecure ?? true;
+  const isSecure =
+    options?.isSecure ?? ensureSecureCookiesPreference(env);
   if (isSecure) {
     cookie.push('Secure');
   }
@@ -158,7 +238,8 @@ export async function createSession(
  */
 export async function verifySession(
   request: Request,
-  secret: string
+  secret: string,
+  env?: Partial<Env> | typeof process.env
 ): Promise<{ userId: string; isAdmin: boolean } | null> {
   const cookieHeader = request.headers.get('Cookie');
   if (!cookieHeader) {
@@ -182,7 +263,7 @@ export async function verifySession(
     return null;
   }
 
-  const sessionData = await decryptSession(sessionCookie, secret);
+  const sessionData = await decryptSession(sessionCookie, secret, env);
   if (!sessionData) {
     return null;
   }
@@ -194,10 +275,23 @@ export async function verifySession(
  * 删除 session cookie
  * 返回 Set-Cookie header 的值
  */
-export function deleteSession(isSecure = true): string {
+export function deleteSession(
+  isSecure?: boolean,
+  env?: Partial<Env> | typeof process.env
+): string {
   const attrs = ['Max-Age=0', 'Path=/', 'HttpOnly', 'SameSite=Lax'];
-  if (isSecure) attrs.push('Secure');
+  const resolvedSecure =
+    typeof isSecure === 'boolean'
+      ? isSecure
+      : ensureSecureCookiesPreference(env);
+  if (resolvedSecure) attrs.push('Secure');
   return `${SESSION_COOKIE_NAME}=; ${attrs.join('; ')}`;
+}
+
+export function getSecureCookiePreference(
+  env?: Partial<Env> | typeof process.env
+): boolean {
+  return ensureSecureCookiesPreference(env);
 }
 
 // ============================================================================
@@ -234,7 +328,10 @@ export async function verifySessionFromCookies(
  * 兼容 Cloudflare Workers (Env) 和 Next.js (process.env)
  */
 export function getSessionSecret(env?: Partial<Env> | typeof process.env): string {
-  const secret = env?.SESSION_SECRET || process.env.SESSION_SECRET || process.env.NEXTAUTH_SECRET;
+  const secret =
+    env?.SESSION_SECRET ||
+    process.env.SESSION_SECRET ||
+    process.env.NEXTAUTH_SECRET;
 
   if (!secret) {
     throw new Error(
@@ -245,6 +342,8 @@ export function getSessionSecret(env?: Partial<Env> | typeof process.env): strin
   if (secret.length < 32) {
     throw new Error('SESSION_SECRET must be at least 32 characters long');
   }
+
+  ensureSecureCookiesPreference(env);
 
   return secret;
 }

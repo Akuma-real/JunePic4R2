@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS users (
     avatar TEXT,
     provider TEXT NOT NULL,
     provider_id TEXT NOT NULL,
+    password_hash TEXT,
     created_at INTEGER NOT NULL DEFAULT (unixepoch()),
     updated_at INTEGER NOT NULL DEFAULT (unixepoch())
 );

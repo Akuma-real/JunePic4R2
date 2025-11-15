@@ -7,7 +7,11 @@
 /// <reference types="@cloudflare/workers-types" />
 
 import { upsertUserFromGitHub } from '../../lib/db-queries';
-import { createSession, getSessionSecret } from '../../lib/auth-helpers';
+import {
+  createSession,
+  getSecureCookiePreference,
+  getSessionSecret,
+} from '../../lib/auth-helpers';
 import { resolveAppUrl } from '../_url';
 
 interface GitHubUser {
@@ -165,9 +169,8 @@ export async function onRequestGet(context: EventContext<Env, never, Record<stri
 
     // 5. 创建 session（本地开发下不加 Secure）
     const secret = getSessionSecret(context.env);
-    const isSecure = new URL(context.request.url).protocol === 'https:';
+    const secureCookies = getSecureCookiePreference(context.env);
     const sessionCookie = await createSession(user.id, secret, {
-      isSecure,
       isAdmin,
     });
 
@@ -175,7 +178,12 @@ export async function onRequestGet(context: EventContext<Env, never, Record<stri
     const headers = new Headers();
     headers.set('Location', `${appUrl}/dashboard`);
     headers.append('Set-Cookie', sessionCookie);
-    headers.append('Set-Cookie', `oauth_state=; Max-Age=0; Path=/; HttpOnly; SameSite=Lax${isSecure ? '; Secure' : ''}`);
+    headers.append(
+      'Set-Cookie',
+      `oauth_state=; Max-Age=0; Path=/; HttpOnly; SameSite=Lax${
+        secureCookies ? '; Secure' : ''
+      }`
+    );
     return new Response(null, { status: 302, headers });
   } catch (error) {
     console.error('GitHub OAuth callback error:', error);

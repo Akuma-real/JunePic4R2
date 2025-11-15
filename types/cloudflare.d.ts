@@ -12,6 +12,8 @@ declare global {
 
     // 认证相关
     SESSION_SECRET: string;
+    SESSION_SALT?: string; // 向后兼容：已弃用，新版本使用固定空盐值
+    SECURE_COOKIES?: string;
     GITHUB_CLIENT_ID: string;
     GITHUB_CLIENT_SECRET: string;
     OWNER_EMAIL: string; // 单用户模式：唯一允许登录且为管理员的邮箱

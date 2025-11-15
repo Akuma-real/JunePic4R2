@@ -12,8 +12,7 @@ import { resolveAppUrl } from '../_url';
 export async function onRequestPost(context: EventContext<Env, never, Record<string, unknown>>) {
 
   // 清除 session cookie
-  const isSecure = new URL(context.request.url).protocol === 'https:';
-  const clearCookie = deleteSession(isSecure);
+  const clearCookie = deleteSession(undefined, context.env);
 
   const appUrl = resolveAppUrl(context.env, context.request);
 

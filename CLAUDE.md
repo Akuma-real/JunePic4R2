@@ -85,6 +85,12 @@ wrangler d1 execute junepic_db --file=db/migrations/001_initial_schema.sql
    - `lib/upload-tokens.ts` 管理令牌验证
    - 存储在 D1 的 `upload_tokens` 表中
 
+3. **密码登录（管理员）**
+   - 仅 `OWNER_EMAIL` 指定的邮箱允许登录
+   - 首次成功登录时，系统会基于输入密码生成随机 16 字节 salt 的 PBKDF2（SHA-256，100,000 次迭代）哈希，并写入 `users.password_hash`
+   - 后续登录会验证数据库中的哈希，无需在环境变量中存储明文密码
+   - 配置项：`SECURE_COOKIES`（是否在 cookie 上添加 `Secure` 标记）
+
 **安全性**：会话加密使用 PBKDF2 派生的 AES-GCM，100,000 次迭代。会话在 30 天后过期。
 
 ### 数据库模式（D1）
@@ -114,6 +120,7 @@ wrangler d1 execute junepic_db --file=db/migrations/001_initial_schema.sql
 **生产环境（Cloudflare Pages）**：
 - `APP_URL` - 站点 URL
 - `SESSION_SECRET` - 会话加密密钥（≥32 字符）
+- `SECURE_COOKIES` - `true/false`（或 `0/1`）控制是否为 session cookie 添加 `Secure`
 - `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` - OAuth 凭证
 - `OWNER_EMAIL` - 单个管理员邮箱
 - 绑定：`R2_BUCKET`、`DB`

@@ -116,14 +116,20 @@ Cloudflare Pages 负责托管静态 `out/` 目录，并通过 Pages Functions �
      - `SESSION_SECRET`：长度必须 ≥ 32 的随机字符串（推荐使用 `openssl rand -base64 32` 生成，低于 32 将导致会话校验失败）。
      - `GITHUB_CLIENT_ID`：GitHub OAuth 应用的 Client ID。
      - `GITHUB_CLIENT_SECRET`：GitHub OAuth 应用的 Client Secret。
-     - `OWNER_EMAIL`：唯一允许登录并拥有管理员权限的邮箱（例如 `you@example.com`）。
-   - 绑定（在上一步“Functions → Bindings”中设置，而非 Environment Variables）：
+     - `OWNER_EMAIL`：唯一允许登录并拥有管理员权限的邮箱（例如 `you@example.com`，同时也是密码登录的用户名）。
+   - 绑定（在上一步"Functions → Bindings"中设置，而非 Environment Variables）：
      - `DB`：Cloudflare D1 绑定（选择上文创建的数据库）。
      - `R2_BUCKET`：Cloudflare R2 绑定（选择上文创建的 Bucket）。
    - 可选：
+     - `SECURE_COOKIES`：默认为 `true`；若本地 HTTP 调试无法设置 `Secure` Cookie，可设为 `false`。
      - `R2_PUBLIC_URL`：若 R2 绑定了自定义域，填其完整 URL（如 `https://img.example.com`）；留空则应用回退到 `APP_URL/<key>`，由 Functions 代理 R2 对象。
      - `ALLOWED_REFERERS`：Referer 白名单，逗号分隔，支持通配 `*.example.com`；留空则不启用防盗链校验。
    - 说明：不需要在 Pages 中配置 `R2_ACCOUNT_ID`/`R2_ACCESS_KEY_ID`/`R2_SECRET_ACCESS_KEY`/`R2_BUCKET_NAME`。这些变量仅用于 Next.js 服务端或本地 S3 兼容模式；本项目在 Pages Functions 中通过 `R2_BUCKET` 绑定直接访问 R2。
+
+   **关于密码登录**：
+   - 访问 `/auth/password-login` 可作为 GitHub OAuth 的替代入口，仅允许 `OWNER_EMAIL` 配置的邮箱登录
+   - 首次登录时，系统会将输入的密码使用随机 16 字节 salt 的 PBKDF2（SHA-256，100,000 次迭代）哈希后写入 D1 数据库
+   - 后续登录直接验证已保存的哈希，不再需要或存储 `ADMIN_PASSWORD` 环境变量
 
 6. 配置 GitHub OAuth 回调（GitHub 官网）
    - GitHub → Settings → Developer settings → OAuth Apps。
