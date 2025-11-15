@@ -8,6 +8,8 @@
 const SESSION_COOKIE_NAME = 'junepic_session';
 const SESSION_MAX_AGE = 30 * 24 * 60 * 60; // 30 days in seconds
 const FALSE_BOOLEAN_VALUE = /^(false|0|no)$/i;
+const URL_PROTOCOL_PATTERN = /^[a-zA-Z][a-zA-Z\d+\-.]*:\/\//;
+const LOCAL_HOSTNAMES = new Set(['localhost', '127.0.0.1', '0.0.0.0', '::1']);
 
 let cachedSecureCookies: boolean | null = null;
 
@@ -44,25 +46,123 @@ function parseSecureCookiesFlag(value?: string | null): boolean | null {
   return !FALSE_BOOLEAN_VALUE.test(value.trim());
 }
 
+function readEnvString(
+  source: Partial<Env> | typeof process.env | undefined,
+  key: string
+): string | undefined {
+  if (!source) return undefined;
+  const raw = (source as Record<string, unknown>)[key];
+  if (typeof raw !== 'string') return undefined;
+  const trimmed = raw.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
+function isLocalHostname(hostname: string): boolean {
+  const normalized = hostname.toLowerCase();
+  return LOCAL_HOSTNAMES.has(normalized);
+}
+
+function inferSecureFromAddress(value?: string): boolean | null {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+
+  const hasProtocol = URL_PROTOCOL_PATTERN.test(trimmed);
+  const normalized = hasProtocol ? trimmed : `https://${trimmed}`;
+
+  try {
+    const url = new URL(normalized);
+    if (!hasProtocol && isLocalHostname(url.hostname)) {
+      return false;
+    }
+    if (url.protocol === 'https:') {
+      return !isLocalHostname(url.hostname);
+    }
+    if (url.protocol === 'http:') {
+      return false;
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+}
+
+function inferSecureCookiesFromEnv(
+  env?: Partial<Env> | typeof process.env
+): boolean | null {
+  const sources = [env];
+  if (typeof process !== 'undefined' && process.env) {
+    sources.push(process.env);
+  }
+
+  const urlKeys = [
+    'APP_URL',
+    'NEXT_PUBLIC_APP_URL',
+    'NEXTAUTH_URL',
+    'URL',
+    'VERCEL_URL',
+    'CF_PAGES_URL',
+  ];
+
+  for (const source of sources) {
+    if (!source) continue;
+    for (const key of urlKeys) {
+      const value = readEnvString(source, key);
+      const inferred = inferSecureFromAddress(value);
+      if (inferred !== null) {
+        return inferred;
+      }
+    }
+  }
+
+  return null;
+}
+
+function readExplicitSecureCookiesPreference(
+  env?: Partial<Env> | typeof process.env
+): boolean | null {
+  const sources = [env];
+  if (typeof process !== 'undefined' && process.env) {
+    sources.push(process.env);
+  }
+
+  for (const source of sources) {
+    const raw = readEnvString(source, 'SECURE_COOKIES');
+    const parsed = parseSecureCookiesFlag(raw ?? null);
+    if (parsed !== null) {
+      return parsed;
+    }
+  }
+
+  return null;
+}
+
 function ensureSecureCookiesPreference(
   env?: Partial<Env> | typeof process.env
 ): boolean {
-  const raw =
-    env?.SECURE_COOKIES ??
-    (typeof process !== 'undefined' ? process.env?.SECURE_COOKIES : undefined);
-
-  const parsed = parseSecureCookiesFlag(raw ?? null);
-  if (parsed !== null) {
-    cachedSecureCookies = parsed;
-    return parsed;
-  }
-
   if (typeof cachedSecureCookies === 'boolean') {
     return cachedSecureCookies;
   }
 
-  cachedSecureCookies = true;
-  return cachedSecureCookies;
+  const explicit = readExplicitSecureCookiesPreference(env);
+  if (explicit !== null) {
+    cachedSecureCookies = explicit;
+    return explicit;
+  }
+
+  const inferred = inferSecureCookiesFromEnv(env);
+  if (inferred !== null) {
+    cachedSecureCookies = inferred;
+    return inferred;
+  }
+
+  const fallback =
+    typeof process !== 'undefined'
+      ? process.env?.NODE_ENV === 'production'
+      : true;
+  cachedSecureCookies = fallback;
+  return fallback;
 }
 
 // ============================================================================
