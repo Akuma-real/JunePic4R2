@@ -16,33 +16,42 @@ export async function onRequestGet(context: EventContext<Env, never, Record<stri
     const session = await verifySession(context.request, secret);
 
     if (!session) {
-      return Response.json({ error: 'Unauthorized' }, { status: 401 });
+      return Response.json(
+        { error: 'Unauthorized' },
+        { status: 401, headers: { 'Cache-Control': 'no-store, private', Vary: 'Cookie' } }
+      );
     }
 
     // 获取用户信息
     const user = await getUserById(context.env.DB, session.userId);
 
     if (!user) {
-      return Response.json({ error: 'User not found' }, { status: 404 });
+      return Response.json(
+        { error: 'User not found' },
+        { status: 404, headers: { 'Cache-Control': 'no-store, private', Vary: 'Cookie' } }
+      );
     }
 
     // 返回用户信息（不包含敏感数据）
-    return Response.json({
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        avatar: user.avatar,
-        provider: user.provider,
-        createdAt: user.created_at,
-        isAdmin: session.isAdmin,
+    return Response.json(
+      {
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          avatar: user.avatar,
+          provider: user.provider,
+          createdAt: user.created_at,
+          isAdmin: session.isAdmin,
+        },
       },
-    });
+      { headers: { 'Cache-Control': 'no-store, private', Vary: 'Cookie' } }
+    );
   } catch (error) {
     console.error('Get current user error:', error);
     return Response.json(
       { error: 'Internal server error' },
-      { status: 500 }
+      { status: 500, headers: { 'Cache-Control': 'no-store, private', Vary: 'Cookie' } }
     );
   }
 }

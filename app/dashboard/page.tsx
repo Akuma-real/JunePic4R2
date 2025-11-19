@@ -40,7 +40,8 @@ interface HealthState {
 }
 
 export default function DashboardPage() {
-  const { user, loading, logout } = useAuth();
+  // 受保护页面：直接拉取 /auth/me，避免多一次 status 请求
+  const { user, loading, logout } = useAuth({ strategy: 'me-direct' });
   const router = useRouter();
   const [stats, setStats] = useState<Stats>({
     imageCount: 0,

@@ -15,18 +15,19 @@ import Link from 'next/link';
 import Image from 'next/image';
 
 export default function Home() {
-  const { user, loading } = useAuth();
+  // 公共首页：只探测是否登录，用于决定是否跳转；不拉详细用户
+  const { hasSession, loading } = useAuth({ strategy: 'status-only' });
   const router = useRouter();
 
   useEffect(() => {
     // 如果已登录，重定向到仪表板
-    if (!loading && user) {
+    if (!loading && hasSession) {
       router.push('/dashboard');
     }
-  }, [loading, user, router]);
+  }, [loading, hasSession, router]);
 
   // 如果正在加载或已登录，不显示内容
-  if (loading || user) {
+  if (loading || hasSession) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
